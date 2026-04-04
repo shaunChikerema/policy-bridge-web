@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  CreditCard,
-  FileText,
-  Plus,
-  Search,
-  Shield,
-  Users,
-} from "lucide-react";
+import { CreditCard, FileText, Shield, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface QuickActionsProps {
@@ -15,46 +8,69 @@ interface QuickActionsProps {
   onActionClick?: (actionId: string) => void;
 }
 
-const actions = [
-  { id: "new-policy",  label: "+ Policy",  icon: Shield,     href: "/dashboard/policy-management/create" },
-  { id: "find-client", label: "Search",    icon: Search,     href: "/dashboard/client-management"        },
-  { id: "add-client",  label: "+ Client",  icon: Users,      href: "/dashboard/client-management/new"    },
-  { id: "payment",     label: "+ Payment", icon: CreditCard, href: "/dashboard/payment-management/new"   },
-  { id: "new-claim",   label: "+ Claim",   icon: FileText,   href: "/dashboard/claims-management/new"    },
-  { id: "new-policy-2",label: "+ Policy",  icon: Plus,       href: "/dashboard/policy-management/create" },
-];
-
-// Deduplicated clean action list
+// Supabase green as primary, others are distinct but not clashing
 const quickActions = [
-  { id: "add-client",  label: "Add Client",  icon: Users,      href: "/dashboard/client-management/new"    },
-  { id: "new-policy",  label: "New Policy",  icon: Shield,     href: "/dashboard/policy-management/create" },
-  { id: "new-claim",   label: "New Claim",   icon: FileText,   href: "/dashboard/claims-management/new"    },
-  { id: "log-payment", label: "Log Payment", icon: CreditCard, href: "/dashboard/payment-management/new"   },
-  { id: "find-client", label: "Find Client", icon: Search,     href: "/dashboard/client-management"        },
+  {
+    id: "add-client",
+    label: "Client",
+    icon: Users,
+    href: "/dashboard/client-management/new",
+    color: "#3ECF8E",
+    bgLight: "rgba(62,207,142,0.1)",
+    bgDark: "rgba(62,207,142,0.12)",
+  },
+  {
+    id: "new-policy",
+    label: "Policy",
+    icon: Shield,
+    href: "/dashboard/policy-management/create",
+    color: "#60a5fa",
+    bgLight: "rgba(96,165,250,0.1)",
+    bgDark: "rgba(96,165,250,0.12)",
+  },
+  {
+    id: "new-claim",
+    label: "Claim",
+    icon: FileText,
+    href: "/dashboard/claims-management/new",
+    color: "#fb923c",
+    bgLight: "rgba(251,146,60,0.1)",
+    bgDark: "rgba(251,146,60,0.12)",
+  },
+  {
+    id: "log-payment",
+    label: "Payment",
+    icon: CreditCard,
+    href: "/dashboard/payment-management/new",
+    color: "#a78bfa",
+    bgLight: "rgba(167,139,250,0.1)",
+    bgDark: "rgba(167,139,250,0.12)",
+  },
 ];
 
-export default function QuickActions({ onActionClick }: QuickActionsProps) {
+export default function QuickActions({ isDarkMode = false, onActionClick }: QuickActionsProps) {
   const router = useRouter();
-
-  const handleClick = (id: string, href: string) => {
-    onActionClick?.(id);
-    router.push(href);
-  };
+  const labelColor = isDarkMode ? "#6B6B6B" : "#6B7280";
 
   return (
-    <div className="grid grid-cols-5 gap-2">
+    <div className="grid grid-cols-4 gap-1">
       {quickActions.map((action) => {
         const Icon = action.icon;
+        const bg = isDarkMode ? action.bgDark : action.bgLight;
+
         return (
           <button
             key={action.id}
-            onClick={() => handleClick(action.id, action.href)}
-            className="flex flex-col items-center gap-2 py-3 px-1 rounded-xl hover:bg-gray-50 active:scale-95 transition-all"
+            onClick={() => { onActionClick?.(action.id); router.push(action.href); }}
+            className="flex flex-col items-center gap-2.5 py-4 rounded-2xl active:scale-95 transition-all"
           >
-            <div className="w-11 h-11 rounded-2xl bg-gray-100 flex items-center justify-center">
-              <Icon className="w-5 h-5 text-gray-700" strokeWidth={1.5} />
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center"
+              style={{ background: bg }}
+            >
+              <Icon className="w-5 h-5" style={{ color: action.color }} strokeWidth={1.75} />
             </div>
-            <span className="text-[10px] text-gray-500 text-center leading-tight font-medium">
+            <span className="text-[11px] font-semibold" style={{ color: labelColor }}>
               {action.label}
             </span>
           </button>

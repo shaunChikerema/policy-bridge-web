@@ -7,10 +7,121 @@ import { useClaims } from "@/hooks/useClaims";
 import { useClients } from "@/hooks/useClients";
 import { usePayments } from "@/hooks/usePayments";
 import { usePolicies } from "@/hooks/usePolicies";
-import { RefreshCw } from "lucide-react";
+import { useStats } from "@/hooks/useStats";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Bell,
+  ChevronRight,
+  RefreshCw,
+  Shield,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+// Supabase green palette
+const SB_GREEN       = "#3ECF8E";
+const SB_GREEN_DIM   = "#29a874";
+const SB_GREEN_MUTED = "rgba(62,207,142,0.10)";
+
+// Always light — matches white sidebar + header shell
+const BG      = "#F8F9FA";
+const SURFACE = "#FFFFFF";
+const BORDER  = "#E5E7EB";
+const TEXT1   = "#111827";
+const TEXT2   = "#6B7280";
+const TEXT3   = "#9CA3AF";
+const SKELETON = "#F3F4F6";
+
+/* ─── Rotating ticker ─── */
+function HeroTicker({ lines }: { lines: { text: string; href: string }[] }) {
+  const router = useRouter();
+  const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (lines.length <= 1) return;
+    const interval = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIndex((i) => (i + 1) % lines.length);
+        setVisible(true);
+      }, 350);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [lines.length]);
+
+  if (!lines.length) return null;
+  const current = lines[index];
+
+  return (
+    <button
+      onClick={() => router.push(current.href)}
+      className="flex items-center gap-1.5 mt-3 group"
+      style={{ opacity: visible ? 1 : 0, transition: "opacity 0.35s ease" }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: SB_GREEN }} />
+      <span className="text-[12px] font-medium" style={{ color: SB_GREEN }}>
+        {current.text}
+      </span>
+      <ArrowUpRight className="w-3 h-3 flex-shrink-0" style={{ color: SB_GREEN }} />
+    </button>
+  );
+}
+
+function PolicyCard({
+  name, clientName, status, premium, href,
+}: {
+  name: string; clientName: string; status: string;
+  premium: number; href: string;
+}) {
+  const router = useRouter();
+  const isActive = ["Active", "active"].includes(status);
+  const premiumDisplay =
+    premium >= 1_000_000 ? `P ${(premium / 1_000_000).toFixed(1)}M`
+    : premium >= 1_000   ? `P ${(premium / 1_000).toFixed(0)}K`
+    :                      `P ${premium.toLocaleString()}`;
+
+  return (
+    <button
+      onClick={() => router.push(href)}
+      className="flex-shrink-0 flex flex-col justify-between rounded-2xl p-4 active:scale-[0.97] transition-transform text-left"
+      style={{
+        width: "72vw",
+        maxWidth: 260,
+        minHeight: 140,
+        background: SURFACE,
+        border: `1px solid ${BORDER}`,
+        boxShadow: "0 1px 8px rgba(0,0,0,0.06)",
+      }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: SB_GREEN_MUTED }}
+        >
+          <Shield className="w-4 h-4" strokeWidth={1.75} style={{ color: SB_GREEN }} />
+        </div>
+        <span
+          className="text-[10px] font-semibold px-2 py-0.5 rounded-full mt-0.5"
+          style={{
+            background: isActive ? SB_GREEN_MUTED : SKELETON,
+            color: isActive ? SB_GREEN : TEXT2,
+          }}
+        >
+          {status}
+        </span>
+      </div>
+      <div className="mt-3">
+        <p className="text-sm font-bold leading-tight line-clamp-1" style={{ color: TEXT1 }}>{name}</p>
+        <p className="text-xs mt-0.5 truncate" style={{ color: TEXT2 }}>{clientName}</p>
+        <p className="text-base font-bold mt-2" style={{ color: SB_GREEN }}>{premiumDisplay}</p>
+      </div>
+    </button>
+  );
+}
+
+/* ─── Page ─── */
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
@@ -20,6 +131,7 @@ export default function Home() {
   const { policies, loading: policiesLoading, fetchPolicies } = usePolicies();
   const { claims, loading: claimsLoading, fetchClaims } = useClaims();
   const { payments, loading: paymentsLoading, fetchPayments } = usePayments();
+  const { stats, isLoading: statsLoading } = useStats();
 
   const anyLoading = clientsLoading || policiesLoading || claimsLoading || paymentsLoading || profileLoading;
 
@@ -33,116 +145,268 @@ export default function Home() {
     const load = async () => {
       try {
         await Promise.all([fetchClients(), fetchPolicies(), fetchClaims(), fetchPayments()]);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setIsLoading(false);
-      }
+      } catch (e) { console.error(e); }
+      finally { setIsLoading(false); }
     };
     load();
   }, [fetchClients, fetchPolicies, fetchClaims, fetchPayments]);
 
   const handleRefresh = async () => {
     setIsLoading(true);
-    try {
-      await Promise.all([fetchClients(), fetchPolicies(), fetchClaims(), fetchPayments()]);
-    } finally {
-      setIsLoading(false);
-    }
+    try { await Promise.all([fetchClients(), fetchPolicies(), fetchClaims(), fetchPayments()]); }
+    finally { setIsLoading(false); }
   };
 
-  const stats = useMemo(() => {
-    const activePolicies = policies.filter(p => ["Active", "active"].includes(p.status)).length;
-    const openClaims = claims.filter(c => ["Open", "Processing", "Under Review", "Pending"].includes(c.status)).length;
-    const totalRevenue = payments
-      .filter(p => ["completed", "success"].includes(p.status))
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const loading = isLoading || anyLoading;
 
-    return [
-      { label: "Clients",  value: clients.length,                   href: "/dashboard/client-management"  },
-      { label: "Policies", value: activePolicies,                   href: "/dashboard/policy-management"  },
-      { label: "Claims",   value: openClaims,                       href: "/dashboard/claims-management"  },
-      { label: "Revenue",  value: `P ${totalRevenue.toLocaleString()}`, href: "/dashboard/payment-management" },
-    ];
+  const derived = useMemo(() => {
+    const openClaims = claims.filter((c) =>
+      ["Open", "Processing", "Under Review", "Pending"].includes(c.status)
+    ).length;
+    const totalRevenue = payments
+      .filter((p) => ["completed", "success"].includes(p.status))
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    const revenueDisplay =
+      totalRevenue >= 1_000_000 ? `${(totalRevenue / 1_000_000).toFixed(1)}M`
+      : totalRevenue >= 1_000   ? `${(totalRevenue / 1_000).toFixed(0)}K`
+      :                           totalRevenue.toLocaleString();
+    return { clientCount: clients.length, openClaims, revenueDisplay };
   }, [clients, policies, claims, payments]);
+
+  const tickerLines = useMemo(() => {
+    if (loading || statsLoading) return [];
+    const lines: { text: string; href: string }[] = [];
+
+    if (stats) {
+      if (stats.new_this_month > 0)
+        lines.push({ text: `${stats.new_this_month} new client${stats.new_this_month > 1 ? "s" : ""} joined this month`, href: "/dashboard/client-management" });
+      if (stats.growth_rate > 0)
+        lines.push({ text: `Portfolio growing at ${stats.growth_rate.toFixed(1)}% this month`, href: "/dashboard/client-management" });
+      if (stats.active_clients > 0)
+        lines.push({ text: `${stats.active_clients} of ${stats.total_clients} clients currently active`, href: "/dashboard/client-management" });
+      if (stats.total_premium_value > 0) {
+        const val = stats.total_premium_value >= 1_000_000
+          ? `${(stats.total_premium_value / 1_000_000).toFixed(1)}M`
+          : stats.total_premium_value >= 1_000
+          ? `${(stats.total_premium_value / 1_000).toFixed(0)}K`
+          : stats.total_premium_value.toLocaleString();
+        lines.push({ text: `P ${val} total premium value in portfolio`, href: "/dashboard/policy-management" });
+      }
+    }
+
+    const openClaims = claims.filter((c) =>
+      ["Open", "Processing", "Under Review", "Pending"].includes(c.status)
+    );
+    if (openClaims.length > 0)
+      lines.push({ text: `${openClaims.length} open claim${openClaims.length > 1 ? "s" : ""} awaiting review`, href: "/dashboard/claims-management" });
+
+    const recentClaim = claims.find((c) => c.client?.full_name);
+    if (recentClaim)
+      lines.push({ text: `${recentClaim.claim_type} claim · ${recentClaim.client!.full_name}`, href: `/dashboard/claims-management/${recentClaim.id}` });
+
+    const recentPayment = payments.find((p) => p.client?.full_name && ["completed", "success"].includes(p.status));
+    if (recentPayment) {
+      const amt = recentPayment.amount >= 1_000 ? `${(recentPayment.amount / 1_000).toFixed(0)}K` : recentPayment.amount.toLocaleString();
+      lines.push({ text: `P ${amt} received from ${recentPayment.client!.full_name}`, href: `/dashboard/payment-management/${recentPayment.id}` });
+    }
+
+    policies.slice(0, 2).forEach((p) => {
+      if (p.policy_name && p.client?.full_name)
+        lines.push({ text: `${p.policy_name} · ${p.client.full_name}`, href: `/dashboard/policy-management/${p.id}` });
+    });
+
+    const soon = policies.filter((p) => {
+      if (!p.expiration_date) return false;
+      const days = (new Date(p.expiration_date).getTime() - Date.now()) / 86400000;
+      return days > 0 && days <= 30;
+    });
+    if (soon.length > 0)
+      lines.push({ text: `${soon.length} polic${soon.length > 1 ? "ies" : "y"} expiring within 30 days`, href: "/dashboard/policy-management" });
+
+    return lines;
+  }, [loading, statsLoading, stats, claims, payments, policies]);
+
+  const recentPolicies = useMemo(() =>
+    [...policies]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5),
+    [policies]
+  );
+
+  const policyScrollRef = useRef<HTMLDivElement>(null);
+  const [activePolicyDot, setActivePolicyDot] = useState(0);
+
+  useEffect(() => {
+    const el = policyScrollRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const cardWidth = el.scrollWidth / recentPolicies.length;
+      setActivePolicyDot(Math.round(el.scrollLeft / cardWidth));
+    };
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [recentPolicies.length]);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const loading = isLoading || anyLoading;
+  const dateStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   return (
-    <div className="min-h-screen bg-[#f8f7f4]" style={{ fontFamily: "system-ui, sans-serif" }}>
-      <div className="max-w-2xl mx-auto px-4 pt-8 pb-28 md:pb-10 md:px-6">
+    <div className="min-h-screen" style={{ background: BG, fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
-        {/* Header */}
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">
-              {greeting}
-            </p>
-            {profileLoading ? (
-              <div className="h-7 w-32 bg-gray-200 rounded animate-pulse" />
-            ) : (
-              <h1 className="text-2xl font-normal text-gray-900" style={{ fontFamily: "'Georgia', serif" }}>
-                {userDisplayName || "Welcome back"}
-              </h1>
-            )}
+      {/* ── Topbar ── */}
+      <div className="sticky top-0 z-10 border-b" style={{ background: SURFACE, borderColor: BORDER }}>
+        <div className="max-w-2xl mx-auto px-5 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: SB_GREEN }}>
+              <Shield className="w-3.5 h-3.5" style={{ color: "#fff" }} />
+            </div>
+            <span className="text-[15px] font-bold tracking-tight" style={{ color: TEXT1 }}>PolicyBridge</span>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={loading}
-            className="mt-1 p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-white border border-transparent hover:border-gray-200 transition-all disabled:opacity-30"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-
-        {/* Stats — small pill row, not a big grid */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          {stats.map((stat) => (
-            <button
-              key={stat.label}
-              onClick={() => router.push(stat.href)}
-              className="flex-shrink-0 flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-2 hover:border-gray-400 transition-all active:scale-95"
-            >
-              {loading ? (
-                <div className="h-4 w-16 bg-gray-100 rounded-full animate-pulse" />
-              ) : (
-                <>
-                  <span className="text-sm font-medium text-gray-900">{stat.value}</span>
-                  <span className="text-xs text-gray-400">{stat.label}</span>
-                </>
+          <div className="flex items-center gap-1">
+            <button className="relative w-9 h-9 rounded-full flex items-center justify-center" style={{ color: TEXT2 }}>
+              <Bell className="w-4 h-4" />
+              {!loading && derived.openClaims > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2" style={{ borderColor: SURFACE }} />
               )}
             </button>
-          ))}
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-30"
+              style={{ color: TEXT2 }}
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 pt-5 pb-28 space-y-5">
+
+        {/* ── Hero ── */}
+        <div
+          className="rounded-2xl px-5 py-5 border"
+          style={{
+            background: "#F0FDF9",
+            borderColor: "#D1FAE5",
+          }}
+        >
+          <p className="text-[11px] font-semibold mb-3" style={{ color: SB_GREEN }}>{dateStr}</p>
+          {profileLoading ? (
+            <div className="h-8 w-44 rounded-lg animate-pulse mb-1" style={{ background: SKELETON }} />
+          ) : (
+            <h1 className="text-[23px] font-bold tracking-tight leading-tight" style={{ color: TEXT1 }}>
+              {greeting}, <span style={{ color: SB_GREEN }}>{userDisplayName || "there"}</span> 👋
+            </h1>
+          )}
+          <p className="text-sm mt-1" style={{ color: TEXT2 }}>Here's what's happening today.</p>
+          <HeroTicker lines={tickerLines} />
         </div>
 
-        {/* Quick Actions */}
-        <section className="mb-5">
-          <p className="text-xs uppercase tracking-widest text-gray-400 mb-3 px-0.5">
-            Quick actions
-          </p>
-          <div className="bg-white border border-gray-200 rounded-2xl p-3">
-            <EnhancedQuickActions
-              isDarkMode={false}
-              onActionClick={(actionId) => console.log("Action:", actionId)}
-            />
-          </div>
-        </section>
+        {/* ── Urgent claim alert ── */}
+        {!loading && derived.openClaims > 0 && (
+          <button
+            onClick={() => router.push("/dashboard/claims-management")}
+            className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left active:scale-[0.99] transition-all border"
+            style={{ background: "#fffbeb", borderColor: "#fde68a" }}
+          >
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "#fef3c7" }}>
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-600">
+                {derived.openClaims} claim{derived.openClaims > 1 ? "s" : ""} need attention
+              </p>
+              <p className="text-xs mt-0.5 text-amber-500">Tap to review pending cases</p>
+            </div>
+            <ArrowUpRight className="w-4 h-4 text-amber-400" />
+          </button>
+        )}
 
-        {/* Recent Activity */}
-        <section>
-          <p className="text-xs uppercase tracking-widest text-gray-400 mb-3 px-0.5">
-            Recent activity
-          </p>
-          <div className="bg-white border border-gray-200 rounded-2xl p-3">
-            <EnhancedRecentActivity
-              isDarkMode={false}
-              onActivityClick={(id) => console.log("Activity:", id)}
-            />
+        {/* ── Quick Actions ── */}
+        <div>
+          <p className="text-xs font-semibold px-0.5 mb-3" style={{ color: TEXT3 }}>Quick actions</p>
+          <div className="rounded-2xl border px-2 py-1" style={{ background: SURFACE, borderColor: BORDER }}>
+            <EnhancedQuickActions isDarkMode={false} onActionClick={(id) => console.log("Action:", id)} />
           </div>
-        </section>
+        </div>
+
+        {/* ── Recent Policies ── */}
+        <div>
+          <div className="flex items-center justify-between px-0.5 mb-3">
+            <p className="text-xs font-semibold" style={{ color: TEXT3 }}>Recent policies</p>
+            <button
+              className="text-xs font-semibold flex items-center gap-0.5"
+              style={{ color: SB_GREEN }}
+              onClick={() => router.push("/dashboard/policy-management")}
+            >
+              View all <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="flex gap-3 overflow-hidden">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex-shrink-0 rounded-2xl animate-pulse"
+                  style={{ width: "72vw", maxWidth: 260, minHeight: 140, background: SKELETON }} />
+              ))}
+            </div>
+          ) : recentPolicies.length === 0 ? (
+            <div className="rounded-2xl border py-8 text-center" style={{ background: SURFACE, borderColor: BORDER }}>
+              <p className="text-sm" style={{ color: TEXT2 }}>No policies yet.</p>
+              <p className="text-xs mt-1" style={{ color: TEXT3 }}>Create your first policy to get started.</p>
+            </div>
+          ) : (
+            <>
+              <div
+                ref={policyScrollRef}
+                className="flex gap-3 overflow-x-auto"
+                style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none", paddingBottom: 2 }}
+              >
+                {recentPolicies.map((p) => (
+                  <div key={p.id} style={{ scrollSnapAlign: "start" }}>
+                    <PolicyCard
+                      name={p.policy_name || p.policy_number}
+                      clientName={p.client?.full_name || "—"}
+                      status={p.status}
+                      premium={p.premium_amount}
+                      href={`/dashboard/policy-management/${p.id}`}
+                    />
+                  </div>
+                ))}
+                <div className="flex-shrink-0 w-4" />
+              </div>
+
+              {recentPolicies.length > 1 && (
+                <div className="flex items-center justify-center gap-1.5 mt-3">
+                  {recentPolicies.map((_, i) => (
+                    <div key={i} className="rounded-full transition-all duration-300"
+                      style={{
+                        width: i === activePolicyDot ? 16 : 6,
+                        height: 6,
+                        background: i === activePolicyDot ? SB_GREEN : "#D1FAE5",
+                      }} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* ── Recent Activity ── */}
+        <div>
+          <div className="flex items-center justify-between px-0.5 mb-3">
+            <p className="text-xs font-semibold" style={{ color: TEXT3 }}>Recent activity</p>
+            <button className="text-xs font-semibold flex items-center gap-0.5" style={{ color: SB_GREEN }}>
+              View all <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="rounded-2xl border p-2" style={{ background: SURFACE, borderColor: BORDER }}>
+            <EnhancedRecentActivity isDarkMode={false} onActivityClick={(id) => console.log("Activity:", id)} />
+          </div>
+        </div>
 
       </div>
     </div>
