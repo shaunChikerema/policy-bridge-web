@@ -7,7 +7,7 @@ import { useClaims } from "@/hooks/useClaims";
 import { useClients } from "@/hooks/useClients";
 import { usePayments } from "@/hooks/usePayments";
 import { usePolicies } from "@/hooks/usePolicies";
-import { AlertCircle, BarChart3, FileText, RefreshCw, Shield, Users } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -16,19 +16,16 @@ export default function Home() {
   const router = useRouter();
 
   const { user, profile, loading: profileLoading } = useProfile();
-  const { clients, loading: clientsLoading, fetchClients, error: clientsError } = useClients();
-  const { policies, loading: policiesLoading, fetchPolicies, error: policiesError } = usePolicies();
-  const { claims, loading: claimsLoading, fetchClaims, error: claimsError } = useClaims();
-  const { payments, loading: paymentsLoading, fetchPayments, error: paymentsError } = usePayments();
+  const { clients, loading: clientsLoading, fetchClients } = useClients();
+  const { policies, loading: policiesLoading, fetchPolicies } = usePolicies();
+  const { claims, loading: claimsLoading, fetchClaims } = useClaims();
+  const { payments, loading: paymentsLoading, fetchPayments } = usePayments();
 
   const anyLoading = clientsLoading || policiesLoading || claimsLoading || paymentsLoading || profileLoading;
-  const anyError = clientsError || policiesError || claimsError || paymentsError;
 
   const userDisplayName = useMemo(() => {
     if (profileLoading) return "";
-    if (profile?.first_name || profile?.last_name) {
-      return `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
-    }
+    if (profile?.first_name) return profile.first_name;
     return user?.email?.split("@")[0] || "there";
   }, [profile, user, profileLoading]);
 
@@ -55,7 +52,6 @@ export default function Home() {
   };
 
   const stats = useMemo(() => {
-    const activeClients = clients.filter(c => c.is_active).length;
     const activePolicies = policies.filter(p => ["Active", "active"].includes(p.status)).length;
     const openClaims = claims.filter(c => ["Open", "Processing", "Under Review", "Pending"].includes(c.status)).length;
     const totalRevenue = payments
@@ -63,146 +59,90 @@ export default function Home() {
       .reduce((sum, p) => sum + (p.amount || 0), 0);
 
     return [
-      {
-        label: "Clients",
-        value: clients.length,
-        sub: `${activeClients} active`,
-        icon: Users,
-        href: "/dashboard/client-management",
-        accent: "#e8f0fe",
-      },
-      {
-        label: "Policies",
-        value: activePolicies,
-        sub: `of ${policies.length} total`,
-        icon: Shield,
-        href: "/dashboard/policy-management",
-        accent: "#e6f4ea",
-      },
-      {
-        label: "Claims",
-        value: openClaims,
-        sub: `${claims.length} total`,
-        icon: FileText,
-        href: "/dashboard/claims-management",
-        accent: "#fef3e2",
-      },
-      {
-        label: "Revenue",
-        value: `P ${totalRevenue.toLocaleString()}`,
-        sub: "confirmed",
-        icon: BarChart3,
-        href: "/dashboard/payment-management",
-        accent: "#fce8e6",
-      },
+      { label: "Clients",  value: clients.length,                   href: "/dashboard/client-management"  },
+      { label: "Policies", value: activePolicies,                   href: "/dashboard/policy-management"  },
+      { label: "Claims",   value: openClaims,                       href: "/dashboard/claims-management"  },
+      { label: "Revenue",  value: `P ${totalRevenue.toLocaleString()}`, href: "/dashboard/payment-management" },
     ];
   }, [clients, policies, claims, payments]);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const loading = isLoading || anyLoading;
 
   return (
-    <div className="min-h-screen bg-[#f8f7f4]">
-      <div className="max-w-2xl mx-auto px-4 pt-6 pb-24 md:pb-8 md:px-6 md:pt-8">
+    <div className="min-h-screen bg-[#f8f7f4]" style={{ fontFamily: "system-ui, sans-serif" }}>
+      <div className="max-w-2xl mx-auto px-4 pt-8 pb-28 md:pb-10 md:px-6">
 
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between mb-6">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-8">
           <div>
-            <p className="text-xs text-gray-400 uppercase tracking-widest mb-1" style={{ fontFamily: "system-ui, sans-serif" }}>
+            <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">
               {greeting}
             </p>
             {profileLoading ? (
-              <div className="h-8 w-36 bg-gray-200 rounded-lg animate-pulse" />
+              <div className="h-7 w-32 bg-gray-200 rounded animate-pulse" />
             ) : (
-              <h1 className="text-2xl font-semibold text-gray-900" style={{ fontFamily: "'Georgia', serif" }}>
+              <h1 className="text-2xl font-normal text-gray-900" style={{ fontFamily: "'Georgia', serif" }}>
                 {userDisplayName || "Welcome back"}
               </h1>
             )}
           </div>
-
           <button
             onClick={handleRefresh}
-            disabled={isLoading || anyLoading}
-            className="p-2.5 rounded-full bg-white border border-gray-200 shadow-sm hover:border-gray-300 transition-colors disabled:opacity-40 active:scale-95"
+            disabled={loading}
+            className="mt-1 p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-white border border-transparent hover:border-gray-200 transition-all disabled:opacity-30"
             title="Refresh"
           >
-            <RefreshCw className={`w-4 h-4 text-gray-500 ${isLoading || anyLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
 
-        {/* ── Error ── */}
-        {anyError && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-5" style={{ fontFamily: "system-ui, sans-serif" }}>
-            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-            <p className="text-sm text-red-600">Error loading data. Try refreshing.</p>
-          </div>
-        )}
-
-        {/* ── Stats Grid ── */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          {stats.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <button
-                key={stat.label}
-                onClick={() => router.push(stat.href)}
-                className="bg-white border border-gray-100 rounded-2xl p-4 text-left hover:border-gray-200 hover:shadow-sm transition-all active:scale-[0.98]"
-              >
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
-                  style={{ backgroundColor: stat.accent }}
-                >
-                  <Icon className="w-4 h-4 text-gray-600" />
-                </div>
-                {isLoading || anyLoading ? (
-                  <>
-                    <div className="h-6 w-14 bg-gray-100 rounded animate-pulse mb-1" />
-                    <div className="h-3 w-20 bg-gray-100 rounded animate-pulse" />
-                  </>
-                ) : (
-                  <>
-                    <div className="text-xl font-semibold text-gray-900 mb-0.5" style={{ fontFamily: "'Georgia', serif" }}>
-                      {stat.value}
-                    </div>
-                    <div className="text-xs text-gray-400" style={{ fontFamily: "system-ui, sans-serif" }}>
-                      {stat.label} · {stat.sub}
-                    </div>
-                  </>
-                )}
-              </button>
-            );
-          })}
+        {/* Stats — small pill row, not a big grid */}
+        <div className="flex gap-2 mb-8 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          {stats.map((stat) => (
+            <button
+              key={stat.label}
+              onClick={() => router.push(stat.href)}
+              className="flex-shrink-0 flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-2 hover:border-gray-400 transition-all active:scale-95"
+            >
+              {loading ? (
+                <div className="h-4 w-16 bg-gray-100 rounded-full animate-pulse" />
+              ) : (
+                <>
+                  <span className="text-sm font-medium text-gray-900">{stat.value}</span>
+                  <span className="text-xs text-gray-400">{stat.label}</span>
+                </>
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* ── Quick Actions ── */}
-        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden mb-4">
-          <div className="px-5 pt-5 pb-3 border-b border-gray-50">
-            <p className="text-xs font-medium uppercase tracking-widest text-gray-400" style={{ fontFamily: "system-ui, sans-serif" }}>
-              Quick actions
-            </p>
-          </div>
-          <div className="p-3">
+        {/* Quick Actions */}
+        <section className="mb-5">
+          <p className="text-xs uppercase tracking-widest text-gray-400 mb-3 px-0.5">
+            Quick actions
+          </p>
+          <div className="bg-white border border-gray-200 rounded-2xl p-3">
             <EnhancedQuickActions
               isDarkMode={false}
               onActionClick={(actionId) => console.log("Action:", actionId)}
             />
           </div>
-        </div>
+        </section>
 
-        {/* ── Recent Activity ── */}
-        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
-          <div className="px-5 pt-5 pb-3 border-b border-gray-50">
-            <p className="text-xs font-medium uppercase tracking-widest text-gray-400" style={{ fontFamily: "system-ui, sans-serif" }}>
-              Recent activity
-            </p>
-          </div>
-          <div className="p-3">
+        {/* Recent Activity */}
+        <section>
+          <p className="text-xs uppercase tracking-widest text-gray-400 mb-3 px-0.5">
+            Recent activity
+          </p>
+          <div className="bg-white border border-gray-200 rounded-2xl p-3">
             <EnhancedRecentActivity
               isDarkMode={false}
               onActivityClick={(id) => console.log("Activity:", id)}
             />
           </div>
-        </div>
+        </section>
 
       </div>
     </div>

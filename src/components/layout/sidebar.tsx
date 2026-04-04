@@ -9,7 +9,7 @@ import {
   ClipboardList,
   CreditCard,
   HelpCircle,
-  LayoutDashboard,
+  Home,
   LogOut,
   Settings,
   Shield,
@@ -40,7 +40,7 @@ interface SidebarProps {
 /* ─── Navigation data ────────────────────────────────────────────────────── */
 
 const PRIMARY_NAV: NavItem[] = [
-  { id: "dashboard", label: "Dashboard",  href: "/dashboard",                     icon: LayoutDashboard },
+  { id: "dashboard", label: "Home",      href: "/dashboard",                     icon: Home            },
   { id: "clients",   label: "Clients",    href: "/dashboard/client-management",   icon: Users           },
   { id: "policies",  label: "Policies",   href: "/dashboard/policy-management",   icon: Shield          },
   { id: "claims",    label: "Claims",     href: "/dashboard/claims-management",   icon: ClipboardList   },
