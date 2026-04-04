@@ -11,146 +11,134 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+// ── Brand palette ─────────────────────────────────────────────────────────────
+const NAVY       = "#1B2B4B";
+const NAVY_MED   = "#2C3E63";
+const NAVY_MUTED = "rgba(27,43,75,0.08)";
+const NAVY_LIGHT = "#EEF1F7";
+const ACCENT     = "#4A7FD4";
+const SURFACE    = "#FFFFFF";
+const BG         = "#F4F6FA";
+const BORDER     = "#E2E6EF";
+const TEXT1      = "#111827";
+const TEXT2      = "#6B7280";
+const TEXT3      = "#9CA3AF";
+
+// ── Loading skeleton ──────────────────────────────────────────────────────────
 function ClientManagementLoading() {
   return (
-    <div className="p-4 space-y-4 animate-pulse">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <div className="h-7 bg-gray-300 rounded w-32 mb-2"></div>
-          <div className="h-4 bg-gray-300 rounded w-48"></div>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6">
-        {[...Array(4)].map((_, i) => <div key={i} className="h-20 lg:h-24 bg-gray-300 rounded-xl"></div>)}
-      </div>
-      <div className="h-14 bg-gray-300 rounded-xl mb-4"></div>
-      <div className="space-y-3">
-        {[...Array(3)].map((_, i) => <div key={i} className="h-32 bg-gray-300 rounded-xl"></div>)}
-      </div>
+    <div style={{ padding: 16, background: BG, minHeight: "100vh" }}>
+      <div style={{ height: 28, background: BORDER, borderRadius: 8, width: 160, marginBottom: 8 }} className="animate-pulse" />
+      <div style={{ height: 16, background: BORDER, borderRadius: 8, width: 120, marginBottom: 20 }} className="animate-pulse" />
+      <div style={{ height: 52, background: BORDER, borderRadius: 12, marginBottom: 12 }} className="animate-pulse" />
+      {[...Array(4)].map((_, i) => (
+        <div key={i} style={{ height: 88, background: BORDER, borderRadius: 14, marginBottom: 10 }} className="animate-pulse" />
+      ))}
     </div>
   );
 }
 
+// ── Client card (mobile) ──────────────────────────────────────────────────────
 function ClientCard({ client, onView, onEdit, onDelete, deleting }: any) {
-  const getInitials = (f: string, l: string) => `${f.charAt(0)}${l.charAt(0)}`.toUpperCase();
-  const statusCls = client.is_active
-    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400"
-    : "bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-400";
-
+  const initials = `${client.first_name.charAt(0)}${client.last_name.charAt(0)}`.toUpperCase();
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-shadow active:scale-[0.98]">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-            <span className="text-white font-semibold text-sm">{getInitials(client.first_name, client.last_name)}</span>
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-semibold text-gray-900 dark:text-white truncate">{client.full_name}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Joined {new Date(client.join_date).toLocaleDateString("en-BW", { month: "short", day: "numeric", year: "numeric" })}
-            </p>
-          </div>
-        </div>
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusCls}`}>
-          {client.is_active ? "Active" : "Inactive"}
-        </span>
+    <div style={{
+      background: SURFACE, borderRadius: 14, border: `1px solid ${BORDER}`,
+      padding: "14px 14px", boxShadow: "0 1px 4px rgba(27,43,75,0.06)",
+      display: "flex", alignItems: "center", gap: 12,
+    }}>
+      {/* Avatar */}
+      <div style={{
+        width: 44, height: 44, borderRadius: 12, background: NAVY,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0, fontSize: 14, fontWeight: 700, color: "#fff",
+      }}>
+        {initials}
       </div>
-      <div className="space-y-2 mb-4">
-        <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
-          <Mail className="w-4 h-4 text-blue-500 flex-shrink-0" /><span className="truncate">{client.email}</span>
+
+      {/* Info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: TEXT1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {client.full_name}
+          </span>
+          <span style={{
+            fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 99,
+            background: client.is_active ? NAVY_MUTED : "#F3F4F6",
+            color: client.is_active ? NAVY : TEXT3, flexShrink: 0,
+          }}>
+            {client.is_active ? "Active" : "Inactive"}
+          </span>
         </div>
-        <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
-          <Phone className="w-4 h-4 text-green-500 flex-shrink-0" /><span className="truncate">{formatPhoneNumber(client.phone || "")}</span>
+        <div style={{ fontSize: 12, color: TEXT2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {client.email}
         </div>
         {client.city && (
-          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
-            <MapPin className="w-4 h-4 text-red-500 flex-shrink-0" /><span className="truncate">{client.city}</span>
-          </div>
+          <div style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{client.city}</div>
         )}
       </div>
-      <div className="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-gray-700">
-        <div className="flex space-x-1">
-          <button onClick={() => onView(client.id)} className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition-colors touch-manipulation"><Eye className="w-4 h-4" /></button>
-          <button onClick={() => onEdit(client.id)} className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 transition-colors touch-manipulation"><Edit className="w-4 h-4" /></button>
-        </div>
-        <button onClick={() => onDelete(client.id)} disabled={deleting === client.id} className="p-2 rounded-lg bg-red-50 dark:bg-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors touch-manipulation disabled:opacity-50">
-          <Trash2 className="w-4 h-4" />
+
+      {/* Actions */}
+      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        <button onClick={() => onView(client.id)} style={{ width: 32, height: 32, borderRadius: 8, background: NAVY_MUTED, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: NAVY }}>
+          <Eye style={{ width: 15, height: 15 }} />
+        </button>
+        <button onClick={() => onEdit(client.id)} style={{ width: 32, height: 32, borderRadius: 8, background: "#F3F4F6", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: TEXT2 }}>
+          <Edit style={{ width: 15, height: 15 }} />
+        </button>
+        <button onClick={() => onDelete(client.id)} disabled={deleting === client.id} style={{ width: 32, height: 32, borderRadius: 8, background: "#FEF2F2", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#DC2626", opacity: deleting === client.id ? 0.5 : 1 }}>
+          <Trash2 style={{ width: 15, height: 15 }} />
         </button>
       </div>
     </div>
   );
 }
 
+// ── Table row (desktop) ───────────────────────────────────────────────────────
 function ClientTableRow({ client, onView, onEdit, onDelete, deleting }: any) {
-  const getInitials = (f: string, l: string) => `${f.charAt(0)}${l.charAt(0)}`.toUpperCase();
+  const initials = `${client.first_name.charAt(0)}${client.last_name.charAt(0)}`.toUpperCase();
   return (
-    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-      <td className="py-4 px-4">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-semibold text-sm">{getInitials(client.first_name, client.last_name)}</span>
-          </div>
-          <div className="min-w-0">
-            <div className="font-medium text-gray-900 dark:text-white truncate">{client.full_name}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 truncate">{client.occupation || "Not specified"}</div>
+    <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
+      <td style={{ padding: "14px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: NAVY, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{initials}</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: TEXT1 }}>{client.full_name}</div>
+            <div style={{ fontSize: 12, color: TEXT3 }}>{client.occupation || "—"}</div>
           </div>
         </div>
       </td>
-      <td className="py-4 px-4">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300"><Mail className="w-4 h-4 flex-shrink-0" /><span className="truncate">{client.email}</span></div>
-          {client.phone && <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300"><Phone className="w-4 h-4 flex-shrink-0" /><span className="truncate">{formatPhoneNumber(client.phone)}</span></div>}
-        </div>
+      <td style={{ padding: "14px 16px", fontSize: 13, color: TEXT2 }}>
+        <div>{client.email}</div>
+        {client.phone && <div style={{ marginTop: 2 }}>{formatPhoneNumber(client.phone)}</div>}
       </td>
-      <td className="py-4 px-4"><div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300"><MapPin className="w-4 h-4 flex-shrink-0" /><span>{client.city || "N/A"}</span></div></td>
-      <td className="py-4 px-4">
-        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${client.is_active ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400" : "bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-400"}`}>
+      <td style={{ padding: "14px 16px", fontSize: 13, color: TEXT2 }}>{client.city || "—"}</td>
+      <td style={{ padding: "14px 16px" }}>
+        <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 99, background: client.is_active ? NAVY_MUTED : "#F3F4F6", color: client.is_active ? NAVY : TEXT3 }}>
           {client.is_active ? "Active" : "Inactive"}
         </span>
       </td>
-      <td className="py-4 px-4"><div className="text-sm text-gray-600 dark:text-gray-300">{new Date(client.join_date).toLocaleDateString("en-BW")}</div></td>
-      <td className="py-4 px-4">
-        <div className="flex items-center space-x-2">
-          <button onClick={() => onView(client.id)} className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/20 text-blue-600 hover:bg-blue-100 transition-colors"><Eye className="w-4 h-4" /></button>
-          <button onClick={() => onEdit(client.id)} className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 transition-colors"><Edit className="w-4 h-4" /></button>
-          <button onClick={() => onDelete(client.id)} disabled={deleting === client.id} className="p-2 rounded-lg bg-red-50 dark:bg-red-500/20 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"><Trash2 className="w-4 h-4" /></button>
+      <td style={{ padding: "14px 16px", fontSize: 13, color: TEXT2 }}>{new Date(client.join_date).toLocaleDateString("en-BW")}</td>
+      <td style={{ padding: "14px 16px" }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => onView(client.id)} style={{ width: 30, height: 30, borderRadius: 8, background: NAVY_MUTED, border: "none", cursor: "pointer", color: NAVY, display: "flex", alignItems: "center", justifyContent: "center" }}><Eye style={{ width: 14, height: 14 }} /></button>
+          <button onClick={() => onEdit(client.id)} style={{ width: 30, height: 30, borderRadius: 8, background: "#F3F4F6", border: "none", cursor: "pointer", color: TEXT2, display: "flex", alignItems: "center", justifyContent: "center" }}><Edit style={{ width: 14, height: 14 }} /></button>
+          <button onClick={() => onDelete(client.id)} disabled={deleting === client.id} style={{ width: 30, height: 30, borderRadius: 8, background: "#FEF2F2", border: "none", cursor: "pointer", color: "#DC2626", display: "flex", alignItems: "center", justifyContent: "center", opacity: deleting === client.id ? 0.5 : 1 }}><Trash2 style={{ width: 14, height: 14 }} /></button>
         </div>
       </td>
     </tr>
   );
 }
 
-function StatsCard({ title, value, icon: Icon, trend, subtitle, color, loading }: any) {
-  const colorClasses: any = {
-    blue: "bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400",
-    green: "bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400",
-    purple: "bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400",
-    orange: "bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400",
-  };
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 lg:p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between">
-        <div className="flex-1 min-w-0">
-          <p className="text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">{title}</p>
-          <p className="text-lg lg:text-2xl font-bold text-gray-900 dark:text-white mt-1 lg:mt-2 truncate">{loading ? "..." : value}</p>
-          {trend && !loading && <div className="flex items-center space-x-1 mt-1"><TrendingUp className="w-3 h-3 text-green-500" /><span className="text-xs text-green-600 dark:text-green-400">{trend}</span></div>}
-          {subtitle && !loading && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{subtitle}</p>}
-        </div>
-        <div className={`w-8 h-8 lg:w-12 lg:h-12 rounded-lg lg:rounded-xl flex items-center justify-center ml-3 flex-shrink-0 ${colorClasses[color]}`}>
-          <Icon className="w-4 h-4 lg:w-5 lg:h-5" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
+// ── Main content ──────────────────────────────────────────────────────────────
 function ClientManagementContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<"name" | "date" | "premium">("date");
 
-  const parseStatus = (s: string | null): boolean | "all" => s === "true" ? true : s === "false" ? false : "all";
+  const parseStatus = (s: string | null): boolean | "all" =>
+    s === "true" ? true : s === "false" ? false : "all";
 
   const [filters, setFiltersState] = useState<ClientFilters>({
     search: searchParams.get("search") || "",
@@ -161,23 +149,17 @@ function ClientManagementContent() {
 
   const successMessage = searchParams.get("success");
 
-  const formatCurrency = (amount: number) => new Intl.NumberFormat("en-BW", { style: "currency", currency: "BWP" }).format(amount);
-
   const realStats = (() => {
-    if (loading || !clients.length) return null;
+    if (!clients.length) return null;
     const now = new Date();
     const cm = now.getMonth(), cy = now.getFullYear();
     const active = clients.filter(c => c.is_active).length;
     const newMonth = clients.filter(c => { const d = new Date(c.join_date); return d.getMonth() === cm && d.getFullYear() === cy; }).length;
-    const lm = cm === 0 ? 11 : cm - 1, ly = cm === 0 ? cy - 1 : cy;
-    const lastMonthCount = clients.filter(c => { const d = new Date(c.join_date); return d.getMonth() === lm && d.getFullYear() === ly; }).length;
     return {
-      total_clients: clients.length,
-      active_clients: active,
-      new_this_month: newMonth,
-      total_premium_value: clients.reduce((s, c) => s + (c.annual_income || 0), 0),
-      active_percentage: Math.round((active / clients.length) * 100),
-      monthly_growth: lastMonthCount === 0 ? (newMonth > 0 ? 100 : 0) : Math.round(((newMonth - lastMonthCount) / lastMonthCount) * 100),
+      total: clients.length,
+      active,
+      newMonth,
+      activePct: Math.round((active / clients.length) * 100),
     };
   })();
 
@@ -194,150 +176,218 @@ function ClientManagementContent() {
 
   if (error && !clients.length) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-red-100 dark:bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4"><AlertCircle className="w-8 h-8 text-red-500" /></div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Unable to Load Clients</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
-          <button onClick={() => { clearError(); fetchClients(); }} className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium">Try Again</button>
+      <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#FEF2F2", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+            <AlertCircle style={{ width: 26, height: 26, color: "#DC2626" }} />
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: TEXT1, marginBottom: 6 }}>Unable to Load Clients</div>
+          <div style={{ fontSize: 14, color: TEXT2, marginBottom: 20 }}>{error}</div>
+          <button onClick={() => { clearError(); fetchClients(); }} style={{ padding: "10px 24px", background: NAVY, color: "#fff", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 600 }}>Try Again</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 pb-28">
-      <div className="p-4 lg:p-6 max-w-7xl mx-auto">
+    <div style={{ minHeight: "100vh", background: BG, fontFamily: "system-ui, -apple-system, sans-serif", paddingBottom: 100 }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px 16px" }}>
 
-        {/* Header */}
-        <div className="mb-6 lg:mb-8">
-          <div className="flex items-center justify-between mb-4 lg:mb-6">
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Client Portfolio</h1>
-              <p className="text-gray-600 dark:text-gray-400 text-sm lg:text-base">{loading ? "..." : totalCount} clients in portfolio</p>
-            </div>
-            <div className="hidden lg:flex items-center space-x-3">
-              <button className="flex items-center space-x-2 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm"><Upload className="w-4 h-4" /><span>Import</span></button>
-              <button className="flex items-center space-x-2 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm"><Download className="w-4 h-4" /><span>Export</span></button>
+        {/* ── Header ── */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: NAVY }}>Client Portfolio</div>
+            <div style={{ fontSize: 13, color: TEXT3, marginTop: 2 }}>
+              {loading ? "Loading…" : `${totalCount} client${totalCount !== 1 ? "s" : ""}`}
             </div>
           </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6 lg:mb-8">
-            <StatsCard title="Total Clients" value={realStats?.total_clients || stats?.total_clients || 0} icon={Users} trend={realStats?.monthly_growth ? `+${realStats.monthly_growth}% this month` : undefined} color="blue" loading={loading} />
-            <StatsCard title="Active Clients" value={realStats?.active_clients || stats?.active_clients || 0} icon={Target} subtitle={realStats ? `${realStats.active_percentage}% of portfolio` : undefined} color="green" loading={loading} />
-            <StatsCard title="New This Month" value={realStats?.new_this_month || stats?.new_this_month || 0} icon={Calendar} color="purple" loading={loading} />
-            <StatsCard title="Portfolio Value" value={formatCurrency(realStats?.total_premium_value || stats?.total_premium_value || 0).split(".")[0]} icon={Crown} color="orange" loading={loading} />
+          <div className="hidden lg:flex" style={{ display: "flex", gap: 8 }}>
+            <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: `1.5px solid ${BORDER}`, background: SURFACE, fontSize: 13, color: TEXT2, cursor: "pointer" }}>
+              <Upload style={{ width: 14, height: 14 }} /> Import
+            </button>
+            <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: `1.5px solid ${BORDER}`, background: SURFACE, fontSize: 13, color: TEXT2, cursor: "pointer" }}>
+              <Download style={{ width: 14, height: 14 }} /> Export
+            </button>
           </div>
         </div>
 
-        {/* Success */}
-        {successMessage && (
-          <div className="mb-4 p-3 lg:p-4 rounded-xl bg-green-50 dark:from-green-500/10 border border-green-200 dark:border-green-500/20 flex items-center space-x-3">
-            <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-            </div>
-            <span className="text-sm font-medium text-green-800 dark:text-green-400">{successMessage}</span>
+        {/* ── Inline stats strip ── */}
+        {!loading && realStats && (
+          <div style={{
+            display: "flex", gap: 0, background: SURFACE, borderRadius: 14,
+            border: `1px solid ${BORDER}`, overflow: "hidden", marginBottom: 14,
+            boxShadow: "0 1px 4px rgba(27,43,75,0.05)",
+          }}>
+            {[
+              { label: "Total", value: realStats.total },
+              { label: "Active", value: `${realStats.active} (${realStats.activePct}%)` },
+              { label: "New this month", value: realStats.newMonth },
+            ].map((s, i, arr) => (
+              <div key={s.label} style={{
+                flex: 1, padding: "12px 14px", textAlign: "center",
+                borderRight: i < arr.length - 1 ? `1px solid ${BORDER}` : "none",
+              }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: NAVY }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: TEXT3, marginTop: 1, textTransform: "uppercase", letterSpacing: "0.04em" }}>{s.label}</div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Controls */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 lg:p-6 mb-4 lg:mb-6">
-          <div className="space-y-4 lg:space-y-0 lg:flex lg:items-center lg:justify-between">
-            <div className="lg:flex-1 lg:max-w-md">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input type="text" value={filters.search || ""} onChange={e => handleSearch(e.target.value)} placeholder="Search clients..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm lg:text-base" />
-              </div>
+        {/* ── Success banner ── */}
+        {successMessage && (
+          <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 10, background: "#F0FDF4", border: "1px solid #BBF7D0", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#22C55E", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="10" height="10" viewBox="0 0 20 20" fill="white"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
             </div>
-            <div className="flex items-center space-x-2 lg:space-x-4">
-              <select value={getStatusVal()} onChange={e => handleStatus(e.target.value)} className="flex-1 lg:flex-none px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-sm">
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-              <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="flex-1 lg:flex-none px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-sm">
-                <option value="date">Newest First</option>
-                <option value="name">Name A-Z</option>
-                <option value="premium">Highest Premium</option>
-              </select>
-              <div className="hidden lg:flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                <button onClick={() => setViewMode("grid")} className={`p-2 rounded-md transition-all ${viewMode === "grid" ? "bg-white dark:bg-gray-600 shadow-sm text-blue-600" : "text-gray-500 hover:text-gray-700"}`}><Grid className="w-4 h-4" /></button>
-                <button onClick={() => setViewMode("list")} className={`p-2 rounded-md transition-all ${viewMode === "list" ? "bg-white dark:bg-gray-600 shadow-sm text-blue-600" : "text-gray-500 hover:text-gray-700"}`}><List className="w-4 h-4" /></button>
-              </div>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "#166534" }}>{successMessage}</span>
+          </div>
+        )}
+
+        {/* ── Search + filters ── */}
+        <div style={{ background: SURFACE, borderRadius: 14, border: `1px solid ${BORDER}`, padding: "12px 14px", marginBottom: 14, boxShadow: "0 1px 4px rgba(27,43,75,0.05)" }}>
+          {/* Search */}
+          <div style={{ position: "relative", marginBottom: 10 }}>
+            <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: TEXT3 }} />
+            <input
+              type="text" value={filters.search || ""} onChange={e => handleSearch(e.target.value)}
+              placeholder="Search clients…"
+              style={{ width: "100%", padding: "10px 14px 10px 38px", borderRadius: 10, border: `1.5px solid ${BORDER}`, fontSize: 14, color: TEXT1, background: BG, outline: "none", boxSizing: "border-box" }}
+            />
+          </div>
+          {/* Filters row */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <select value={getStatusVal()} onChange={e => handleStatus(e.target.value)}
+              style={{ flex: 1, padding: "8px 12px", borderRadius: 10, border: `1.5px solid ${BORDER}`, fontSize: 13, color: TEXT2, background: SURFACE, outline: "none" }}>
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
+              style={{ flex: 1, padding: "8px 12px", borderRadius: 10, border: `1.5px solid ${BORDER}`, fontSize: 13, color: TEXT2, background: SURFACE, outline: "none" }}>
+              <option value="date">Newest First</option>
+              <option value="name">Name A–Z</option>
+              <option value="premium">Highest Income</option>
+            </select>
+            {/* Desktop view toggle */}
+            <div className="hidden lg:flex" style={{ display: "flex", background: BG, borderRadius: 10, padding: 3, gap: 2 }}>
+              <button onClick={() => setViewMode("grid")} style={{ width: 34, height: 34, borderRadius: 8, border: "none", cursor: "pointer", background: viewMode === "grid" ? SURFACE : "transparent", color: viewMode === "grid" ? NAVY : TEXT3, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Grid style={{ width: 15, height: 15 }} />
+              </button>
+              <button onClick={() => setViewMode("list")} style={{ width: 34, height: 34, borderRadius: 8, border: "none", cursor: "pointer", background: viewMode === "list" ? SURFACE : "transparent", color: viewMode === "list" ? NAVY : TEXT3, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <List style={{ width: 15, height: 15 }} />
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Content */}
+        {/* ── Client list ── */}
         {loading && !clients.length ? (
-          <div className="text-center py-12 lg:py-16">
-            <div className="animate-spin rounded-full h-8 w-8 lg:h-12 lg:w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400 text-sm lg:text-base">Loading your client portfolio...</p>
+          <div style={{ textAlign: "center", padding: "48px 0" }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", border: `2px solid ${NAVY}`, borderTopColor: "transparent", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            <div style={{ fontSize: 14, color: TEXT3 }}>Loading your clients…</div>
           </div>
         ) : sorted.length === 0 ? (
-          <div className="text-center py-12 lg:py-16 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="w-16 h-16 lg:w-24 lg:h-24 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 lg:mb-6"><Users className="w-8 h-8 lg:w-12 lg:h-12 text-gray-400" /></div>
-            <h3 className="text-lg lg:text-2xl font-bold text-gray-900 dark:text-white mb-2 lg:mb-3">No clients found</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm lg:text-base max-w-md mx-auto">{filters.search ? "Try adjusting your search or filters." : "Get started by adding your first client."}</p>
+          <div style={{ textAlign: "center", padding: "48px 20px", background: SURFACE, borderRadius: 14, border: `1px solid ${BORDER}` }}>
+            <div style={{ width: 52, height: 52, borderRadius: "50%", background: NAVY_LIGHT, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+              <Users style={{ width: 22, height: 22, color: NAVY }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: TEXT1, marginBottom: 6 }}>No clients found</div>
+            <div style={{ fontSize: 13, color: TEXT3 }}>{filters.search ? "Try adjusting your search or filters." : "Add your first client to get started."}</div>
           </div>
         ) : (
           <>
-            <div className="lg:hidden space-y-3">
-              {sorted.map(c => <ClientCard key={c.id} client={c} onView={id => router.push(`/dashboard/client-management/${id}`)} onEdit={id => router.push(`/dashboard/client-management/${id}/edit`)} onDelete={handleDelete} deleting={deleting} />)}
+            {/* Mobile cards */}
+            <div className="lg:hidden" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {sorted.map(c => (
+                <ClientCard key={c.id} client={c}
+                  onView={(id: string) => router.push(`/dashboard/client-management/${id}`)}
+                  onEdit={(id: string) => router.push(`/dashboard/client-management/${id}/edit`)}
+                  onDelete={handleDelete} deleting={deleting} />
+              ))}
             </div>
+
+            {/* Desktop table / grid */}
             <div className="hidden lg:block">
               {viewMode === "grid" ? (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  {sorted.map(c => <ClientCard key={c.id} client={c} onView={id => router.push(`/dashboard/client-management/${id}`)} onEdit={id => router.push(`/dashboard/client-management/${id}/edit`)} onDelete={handleDelete} deleting={deleting} />)}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {sorted.map(c => (
+                    <ClientCard key={c.id} client={c}
+                      onView={(id: string) => router.push(`/dashboard/client-management/${id}`)}
+                      onEdit={(id: string) => router.push(`/dashboard/client-management/${id}/edit`)}
+                      onDelete={handleDelete} deleting={deleting} />
+                  ))}
                 </div>
               ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                          {["Client", "Contact", "Location", "Status", "Join Date", "Actions"].map(h => (
-                            <th key={h} className="text-left py-4 px-6 font-semibold text-gray-600 dark:text-gray-400">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sorted.map(c => <ClientTableRow key={c.id} client={c} onView={id => router.push(`/dashboard/client-management/${id}`)} onEdit={id => router.push(`/dashboard/client-management/${id}/edit`)} onDelete={handleDelete} deleting={deleting} />)}
-                      </tbody>
-                    </table>
-                  </div>
+                <div style={{ background: SURFACE, borderRadius: 14, border: `1px solid ${BORDER}`, overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${BORDER}`, background: BG }}>
+                        {["Client", "Contact", "Location", "Status", "Joined", "Actions"].map(h => (
+                          <th key={h} style={{ textAlign: "left", padding: "12px 16px", fontSize: 11, fontWeight: 700, color: TEXT3, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map(c => (
+                        <ClientTableRow key={c.id} client={c}
+                          onView={(id: string) => router.push(`/dashboard/client-management/${id}`)}
+                          onEdit={(id: string) => router.push(`/dashboard/client-management/${id}/edit`)}
+                          onDelete={handleDelete} deleting={deleting} />
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
           </>
         )}
 
-        {/* Pagination */}
+        {/* ── Pagination ── */}
         {totalPages > 1 && (
-          <div className="mt-6 lg:mt-8 flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
-            <div className="text-sm text-gray-600 dark:text-gray-400">Showing {(currentPage - 1) * 8 + 1} to {Math.min(currentPage * 8, totalCount)} of {totalCount} clients</div>
-            <div className="flex items-center space-x-2">
-              <button onClick={() => setPage(currentPage - 1)} disabled={currentPage === 1} className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+          <div style={{ marginTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 12, color: TEXT3 }}>
+              {(currentPage - 1) * 8 + 1}–{Math.min(currentPage * 8, totalCount)} of {totalCount}
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <button onClick={() => setPage(currentPage - 1)} disabled={currentPage === 1}
+                style={{ width: 32, height: 32, borderRadius: 8, border: `1.5px solid ${BORDER}`, background: SURFACE, cursor: currentPage === 1 ? "not-allowed" : "pointer", opacity: currentPage === 1 ? 0.4 : 1, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT2 }}>
+                <ChevronLeft style={{ width: 16, height: 16 }} />
+              </button>
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 let p = totalPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i;
                 if (p > totalPages || p < 1) return null;
-                return <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 text-sm rounded-lg transition-all ${p === currentPage ? "bg-blue-600 text-white shadow-md" : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"}`}>{p}</button>;
+                return (
+                  <button key={p} onClick={() => setPage(p)}
+                    style={{ width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: p === currentPage ? NAVY : SURFACE, color: p === currentPage ? "#fff" : TEXT2, border: p === currentPage ? "none" : `1.5px solid ${BORDER}` } as React.CSSProperties}>
+                    {p}
+                  </button>
+                );
               })}
-              <button onClick={() => setPage(currentPage + 1)} disabled={currentPage === totalPages} className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronRight className="w-4 h-4" /></button>
+              <button onClick={() => setPage(currentPage + 1)} disabled={currentPage === totalPages}
+                style={{ width: 32, height: 32, borderRadius: 8, border: `1.5px solid ${BORDER}`, background: SURFACE, cursor: currentPage === totalPages ? "not-allowed" : "pointer", opacity: currentPage === totalPages ? 0.4 : 1, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT2 }}>
+                <ChevronRight style={{ width: 16, height: 16 }} />
+              </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Always-visible FAB ── */}
+      {/* ── FAB ── */}
       <button
         onClick={() => router.push("/dashboard/client-management/new")}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 pl-4 pr-5 py-3.5 rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 active:scale-95 transition-all"
-        aria-label="Add new client"
+        style={{
+          position: "fixed", bottom: 80, right: 20, zIndex: 50,
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "12px 20px", borderRadius: 99,
+          background: NAVY, color: "#fff", border: "none",
+          boxShadow: "0 4px 16px rgba(27,43,75,0.3)",
+          fontSize: 14, fontWeight: 600, cursor: "pointer",
+        }}
       >
-        <Plus className="w-5 h-5" />
-        <span className="text-sm font-semibold">Add Client</span>
+        <Plus style={{ width: 18, height: 18 }} />
+        Add Client
       </button>
     </div>
   );
