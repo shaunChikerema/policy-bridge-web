@@ -8,49 +8,49 @@ interface QuickActionsProps {
   onActionClick?: (actionId: string) => void;
 }
 
-// Supabase green as primary, others are distinct but not clashing
+// Navy primary with distinct, harmonious accent colors
 const quickActions = [
   {
     id: "add-client",
     label: "Client",
     icon: Users,
     href: "/dashboard/client-management/new",
-    color: "#3ECF8E",
-    bgLight: "rgba(62,207,142,0.1)",
-    bgDark: "rgba(62,207,142,0.12)",
+    color: "#1B2B4B",              // navy
+    bgLight: "rgba(27,43,75,0.08)",
+    bgDark: "rgba(27,43,75,0.15)",
   },
   {
     id: "new-policy",
     label: "Policy",
     icon: Shield,
     href: "/dashboard/policy-management/create",
-    color: "#60a5fa",
-    bgLight: "rgba(96,165,250,0.1)",
-    bgDark: "rgba(96,165,250,0.12)",
+    color: "#4A7FD4",              // blue accent
+    bgLight: "rgba(74,127,212,0.10)",
+    bgDark: "rgba(74,127,212,0.15)",
   },
   {
     id: "new-claim",
     label: "Claim",
     icon: FileText,
     href: "/dashboard/claims-management/new",
-    color: "#fb923c",
-    bgLight: "rgba(251,146,60,0.1)",
-    bgDark: "rgba(251,146,60,0.12)",
+    color: "#D97706",              // amber — signals urgency/action
+    bgLight: "rgba(217,119,6,0.10)",
+    bgDark: "rgba(217,119,6,0.15)",
   },
   {
     id: "log-payment",
     label: "Payment",
     icon: CreditCard,
     href: "/dashboard/payment-management/new",
-    color: "#a78bfa",
-    bgLight: "rgba(167,139,250,0.1)",
-    bgDark: "rgba(167,139,250,0.12)",
+    color: "#059669",              // emerald — money/positive
+    bgLight: "rgba(5,150,105,0.10)",
+    bgDark: "rgba(5,150,105,0.15)",
   },
 ];
 
 export default function QuickActions({ isDarkMode = false, onActionClick }: QuickActionsProps) {
   const router = useRouter();
-  const labelColor = isDarkMode ? "#6B6B6B" : "#6B7280";
+  const labelColor = isDarkMode ? "#9CA3AF" : "#6B7280";
 
   return (
     <div className="grid grid-cols-4 gap-1">

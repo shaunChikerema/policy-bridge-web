@@ -19,19 +19,23 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-// Supabase green palette
-const SB_GREEN       = "#3ECF8E";
-const SB_GREEN_DIM   = "#29a874";
-const SB_GREEN_MUTED = "rgba(62,207,142,0.10)";
+// ── Brand palette (navy, matches landing page) ──────────────────────────────
+const NAVY        = "#1B2B4B";          // primary brand
+const NAVY_MED    = "#2C3E63";          // hover / pressed
+const NAVY_MUTED  = "rgba(27,43,75,0.08)";  // icon backgrounds
+const NAVY_LIGHT  = "#EEF1F7";          // hero tint
 
-// Always light — matches white sidebar + header shell
-const BG      = "#F8F9FA";
+const ACCENT      = "#4A7FD4";          // blue accent for links / highlights
+const ACCENT_MUTED = "rgba(74,127,212,0.10)";
+
+// ── Surface / text ───────────────────────────────────────────────────────────
+const BG      = "#F4F6FA";
 const SURFACE = "#FFFFFF";
-const BORDER  = "#E5E7EB";
+const BORDER  = "#E2E6EF";
 const TEXT1   = "#111827";
 const TEXT2   = "#6B7280";
 const TEXT3   = "#9CA3AF";
-const SKELETON = "#F3F4F6";
+const SKELETON = "#EEF1F7";
 
 /* ─── Rotating ticker ─── */
 function HeroTicker({ lines }: { lines: { text: string; href: string }[] }) {
@@ -60,11 +64,11 @@ function HeroTicker({ lines }: { lines: { text: string; href: string }[] }) {
       className="flex items-center gap-1.5 mt-3 group"
       style={{ opacity: visible ? 1 : 0, transition: "opacity 0.35s ease" }}
     >
-      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: SB_GREEN }} />
-      <span className="text-[12px] font-medium" style={{ color: SB_GREEN }}>
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ACCENT }} />
+      <span className="text-[12px] font-medium" style={{ color: ACCENT }}>
         {current.text}
       </span>
-      <ArrowUpRight className="w-3 h-3 flex-shrink-0" style={{ color: SB_GREEN }} />
+      <ArrowUpRight className="w-3 h-3 flex-shrink-0" style={{ color: ACCENT }} />
     </button>
   );
 }
@@ -92,21 +96,21 @@ function PolicyCard({
         minHeight: 140,
         background: SURFACE,
         border: `1px solid ${BORDER}`,
-        boxShadow: "0 1px 8px rgba(0,0,0,0.06)",
+        boxShadow: "0 2px 10px rgba(27,43,75,0.07)",
       }}
     >
       <div className="flex items-start justify-between gap-2">
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: SB_GREEN_MUTED }}
+          style={{ background: NAVY_MUTED }}
         >
-          <Shield className="w-4 h-4" strokeWidth={1.75} style={{ color: SB_GREEN }} />
+          <Shield className="w-4 h-4" strokeWidth={1.75} style={{ color: NAVY }} />
         </div>
         <span
           className="text-[10px] font-semibold px-2 py-0.5 rounded-full mt-0.5"
           style={{
-            background: isActive ? SB_GREEN_MUTED : SKELETON,
-            color: isActive ? SB_GREEN : TEXT2,
+            background: isActive ? NAVY_MUTED : SKELETON,
+            color: isActive ? NAVY : TEXT2,
           }}
         >
           {status}
@@ -115,7 +119,7 @@ function PolicyCard({
       <div className="mt-3">
         <p className="text-sm font-bold leading-tight line-clamp-1" style={{ color: TEXT1 }}>{name}</p>
         <p className="text-xs mt-0.5 truncate" style={{ color: TEXT2 }}>{clientName}</p>
-        <p className="text-base font-bold mt-2" style={{ color: SB_GREEN }}>{premiumDisplay}</p>
+        <p className="text-base font-bold mt-2" style={{ color: NAVY }}>{premiumDisplay}</p>
       </div>
     </button>
   );
@@ -190,7 +194,7 @@ export default function Home() {
           : stats.total_premium_value >= 1_000
           ? `${(stats.total_premium_value / 1_000).toFixed(0)}K`
           : stats.total_premium_value.toLocaleString();
-        lines.push({ text: `P ${val} total premium value in portfolio`, href: "/dashboard/policy-management" });
+        lines.push({ text: `Total portfolio value: P ${val}`, href: "/dashboard/policy-management" });
       }
     }
 
@@ -198,27 +202,16 @@ export default function Home() {
       ["Open", "Processing", "Under Review", "Pending"].includes(c.status)
     );
     if (openClaims.length > 0)
-      lines.push({ text: `${openClaims.length} open claim${openClaims.length > 1 ? "s" : ""} awaiting review`, href: "/dashboard/claims-management" });
+      lines.push({ text: `${openClaims.length} open claim${openClaims.length > 1 ? "s" : ""} need attention`, href: "/dashboard/claims-management" });
 
-    const recentClaim = claims.find((c) => c.client?.full_name);
-    if (recentClaim)
-      lines.push({ text: `${recentClaim.claim_type} claim · ${recentClaim.client!.full_name}`, href: `/dashboard/claims-management/${recentClaim.id}` });
-
-    const recentPayment = payments.find((p) => p.client?.full_name && ["completed", "success"].includes(p.status));
-    if (recentPayment) {
-      const amt = recentPayment.amount >= 1_000 ? `${(recentPayment.amount / 1_000).toFixed(0)}K` : recentPayment.amount.toLocaleString();
-      lines.push({ text: `P ${amt} received from ${recentPayment.client!.full_name}`, href: `/dashboard/payment-management/${recentPayment.id}` });
-    }
-
-    policies.slice(0, 2).forEach((p) => {
-      if (p.policy_name && p.client?.full_name)
-        lines.push({ text: `${p.policy_name} · ${p.client.full_name}`, href: `/dashboard/policy-management/${p.id}` });
-    });
+    const pending = payments.filter((p) => p.status === "pending");
+    if (pending.length > 0)
+      lines.push({ text: `${pending.length} payment${pending.length > 1 ? "s" : ""} pending`, href: "/dashboard/payment-management" });
 
     const soon = policies.filter((p) => {
-      if (!p.expiration_date) return false;
-      const days = (new Date(p.expiration_date).getTime() - Date.now()) / 86400000;
-      return days > 0 && days <= 30;
+      if (!p.end_date) return false;
+      const days = (new Date(p.end_date).getTime() - Date.now()) / 86_400_000;
+      return days >= 0 && days <= 30;
     });
     if (soon.length > 0)
       lines.push({ text: `${soon.length} polic${soon.length > 1 ? "ies" : "y"} expiring within 30 days`, href: "/dashboard/policy-management" });
@@ -258,10 +251,10 @@ export default function Home() {
       <div className="sticky top-0 z-10 border-b" style={{ background: SURFACE, borderColor: BORDER }}>
         <div className="max-w-2xl mx-auto px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: SB_GREEN }}>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: NAVY }}>
               <Shield className="w-3.5 h-3.5" style={{ color: "#fff" }} />
             </div>
-            <span className="text-[15px] font-bold tracking-tight" style={{ color: TEXT1 }}>PolicyBridge</span>
+            <span className="text-[15px] font-bold tracking-tight" style={{ color: NAVY }}>PolicyBridge</span>
           </div>
           <div className="flex items-center gap-1">
             <button className="relative w-9 h-9 rounded-full flex items-center justify-center" style={{ color: TEXT2 }}>
@@ -288,19 +281,19 @@ export default function Home() {
         <div
           className="rounded-2xl px-5 py-5 border"
           style={{
-            background: "#F0FDF9",
-            borderColor: "#D1FAE5",
+            background: NAVY,
+            borderColor: NAVY_MED,
           }}
         >
-          <p className="text-[11px] font-semibold mb-3" style={{ color: SB_GREEN }}>{dateStr}</p>
+          <p className="text-[11px] font-semibold mb-3" style={{ color: "rgba(255,255,255,0.55)" }}>{dateStr}</p>
           {profileLoading ? (
-            <div className="h-8 w-44 rounded-lg animate-pulse mb-1" style={{ background: SKELETON }} />
+            <div className="h-8 w-44 rounded-lg animate-pulse mb-1" style={{ background: "rgba(255,255,255,0.1)" }} />
           ) : (
-            <h1 className="text-[23px] font-bold tracking-tight leading-tight" style={{ color: TEXT1 }}>
-              {greeting}, <span style={{ color: SB_GREEN }}>{userDisplayName || "there"}</span> 👋
+            <h1 className="text-[23px] font-bold tracking-tight leading-tight" style={{ color: "#FFFFFF" }}>
+              {greeting}, <span style={{ color: "#A8C4E8" }}>{userDisplayName || "there"}</span> 👋
             </h1>
           )}
-          <p className="text-sm mt-1" style={{ color: TEXT2 }}>Here's what's happening today.</p>
+          <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.6)" }}>Here's what's happening today.</p>
           <HeroTicker lines={tickerLines} />
         </div>
 
@@ -316,7 +309,7 @@ export default function Home() {
               <AlertTriangle className="w-4 h-4 text-amber-500" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-600">
+              <p className="text-sm font-semibold text-amber-700">
                 {derived.openClaims} claim{derived.openClaims > 1 ? "s" : ""} need attention
               </p>
               <p className="text-xs mt-0.5 text-amber-500">Tap to review pending cases</p>
@@ -327,8 +320,8 @@ export default function Home() {
 
         {/* ── Quick Actions ── */}
         <div>
-          <p className="text-xs font-semibold px-0.5 mb-3" style={{ color: TEXT3 }}>Quick actions</p>
-          <div className="rounded-2xl border px-2 py-1" style={{ background: SURFACE, borderColor: BORDER }}>
+          <p className="text-xs font-semibold uppercase tracking-wide px-0.5 mb-3" style={{ color: TEXT3 }}>Quick actions</p>
+          <div className="rounded-2xl border px-2 py-1" style={{ background: SURFACE, borderColor: BORDER, boxShadow: "0 1px 6px rgba(27,43,75,0.05)" }}>
             <EnhancedQuickActions isDarkMode={false} onActionClick={(id) => console.log("Action:", id)} />
           </div>
         </div>
@@ -336,10 +329,10 @@ export default function Home() {
         {/* ── Recent Policies ── */}
         <div>
           <div className="flex items-center justify-between px-0.5 mb-3">
-            <p className="text-xs font-semibold" style={{ color: TEXT3 }}>Recent policies</p>
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: TEXT3 }}>Recent policies</p>
             <button
               className="text-xs font-semibold flex items-center gap-0.5"
-              style={{ color: SB_GREEN }}
+              style={{ color: ACCENT }}
               onClick={() => router.push("/dashboard/policy-management")}
             >
               View all <ChevronRight className="w-3 h-3" />
@@ -386,7 +379,7 @@ export default function Home() {
                       style={{
                         width: i === activePolicyDot ? 16 : 6,
                         height: 6,
-                        background: i === activePolicyDot ? SB_GREEN : "#D1FAE5",
+                        background: i === activePolicyDot ? NAVY : NAVY_LIGHT,
                       }} />
                   ))}
                 </div>
@@ -398,12 +391,12 @@ export default function Home() {
         {/* ── Recent Activity ── */}
         <div>
           <div className="flex items-center justify-between px-0.5 mb-3">
-            <p className="text-xs font-semibold" style={{ color: TEXT3 }}>Recent activity</p>
-            <button className="text-xs font-semibold flex items-center gap-0.5" style={{ color: SB_GREEN }}>
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: TEXT3 }}>Recent activity</p>
+            <button className="text-xs font-semibold flex items-center gap-0.5" style={{ color: ACCENT }}>
               View all <ChevronRight className="w-3 h-3" />
             </button>
           </div>
-          <div className="rounded-2xl border p-2" style={{ background: SURFACE, borderColor: BORDER }}>
+          <div className="rounded-2xl border p-2" style={{ background: SURFACE, borderColor: BORDER, boxShadow: "0 1px 6px rgba(27,43,75,0.05)" }}>
             <EnhancedRecentActivity isDarkMode={false} onActivityClick={(id) => console.log("Activity:", id)} />
           </div>
         </div>

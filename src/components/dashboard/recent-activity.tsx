@@ -37,12 +37,12 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-// Each activity type gets a distinct color
+// Navy-aligned palette — each type distinct but cohesive
 const TYPE_COLORS: Record<string, { color: string; bgLight: string; bgDark: string }> = {
-  client:  { color: "#3ECF8E", bgLight: "rgba(62,207,142,0.08)",  bgDark: "rgba(62,207,142,0.12)"  },
-  policy:  { color: "#60a5fa", bgLight: "rgba(96,165,250,0.08)",  bgDark: "rgba(96,165,250,0.12)"  },
-  claim:   { color: "#fb923c", bgLight: "rgba(251,146,60,0.08)",  bgDark: "rgba(251,146,60,0.12)"  },
-  payment: { color: "#a78bfa", bgLight: "rgba(167,139,250,0.08)", bgDark: "rgba(167,139,250,0.12)" },
+  client:  { color: "#1B2B4B", bgLight: "rgba(27,43,75,0.08)",    bgDark: "rgba(27,43,75,0.15)"   },
+  policy:  { color: "#4A7FD4", bgLight: "rgba(74,127,212,0.10)",  bgDark: "rgba(74,127,212,0.15)" },
+  claim:   { color: "#D97706", bgLight: "rgba(217,119,6,0.10)",   bgDark: "rgba(217,119,6,0.15)"  },
+  payment: { color: "#059669", bgLight: "rgba(5,150,105,0.10)",   bgDark: "rgba(5,150,105,0.15)"  },
 };
 
 export default function RecentActivity({ isDarkMode = false, onActivityClick }: RecentActivityProps) {
@@ -109,7 +109,7 @@ export default function RecentActivity({ isDarkMode = false, onActivityClick }: 
   const text1    = isDarkMode ? "#EDEDED"  : "#111827";
   const text2    = isDarkMode ? "#A1A1A1"  : "#6B7280";
   const divider  = isDarkMode ? "#2E2E2E"  : "#F3F4F6";
-  const skeleton = isDarkMode ? "#333333"  : "#F3F4F6";
+  const skeleton = isDarkMode ? "#2A2A2A"  : "#EEF1F7";
 
   if (loading) {
     return (
