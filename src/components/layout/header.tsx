@@ -5,8 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { useLayout } from "./layout-context";
-import { useProfile } from "./profile-context";
+import { useLayout } from "@/components/layout/layout-context";
+import { useProfile } from "@/components/layout/profile-context";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 

@@ -11,9 +11,7 @@ import { useStats } from "@/hooks/useStats";
 import {
   AlertTriangle,
   ArrowUpRight,
-  Bell,
   ChevronRight,
-  RefreshCw,
   Shield,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -247,33 +245,6 @@ export default function Home() {
   return (
     <div className="min-h-screen" style={{ background: BG, fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
-      {/* ── Topbar ── */}
-      <div className="sticky top-0 z-10 border-b" style={{ background: SURFACE, borderColor: BORDER }}>
-        <div className="max-w-2xl mx-auto px-5 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: NAVY }}>
-              <Shield className="w-3.5 h-3.5" style={{ color: "#fff" }} />
-            </div>
-            <span className="text-[15px] font-bold tracking-tight" style={{ color: NAVY }}>PolicyBridge</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button className="relative w-9 h-9 rounded-full flex items-center justify-center" style={{ color: TEXT2 }}>
-              <Bell className="w-4 h-4" />
-              {!loading && derived.openClaims > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2" style={{ borderColor: SURFACE }} />
-              )}
-            </button>
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-30"
-              style={{ color: TEXT2 }}
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            </button>
-          </div>
-        </div>
-      </div>
 
       <div className="max-w-2xl mx-auto px-4 pt-5 pb-28 space-y-5">
 
