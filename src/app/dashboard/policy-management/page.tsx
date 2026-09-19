@@ -2,832 +2,614 @@
 
 import { usePolicies } from "@/hooks/usePolicies";
 import {
-  AlertTriangle,
+  AlertCircle,
   Calendar,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
-  DollarSign,
+  Clock,
   Edit,
   Eye,
   FileText,
-  Filter,
-  Loader2,
+  Grid,
+  List,
   Plus,
   Search,
   Shield,
-  X,
-  Grid,
-  List,
-  TrendingUp,
-  Target,
-  Clock,
   Zap,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
-// Wrap the component to handle useSearchParams in Suspense
-function PolicyManagementContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const successMessage = searchParams.get("success");
+/* ─── Design tokens (matches client page) ───────────────────────────────── */
+const NAVY       = "#1B2B4B";
+const ACCENT     = "#4A7FD4";
+const SURFACE    = "#FFFFFF";
+const BG         = "#F4F6FA";
+const BORDER     = "#E2E6EF";
+const TEXT1      = "#111827";
+const TEXT2      = "#6B7280";
+const TEXT3      = "#9CA3AF";
+const NAVY_MUTED = "rgba(27,43,75,0.08)";
+const NAVY_LIGHT = "#EEF1F7";
 
-  const {
-    policies,
-    fetchPolicies,
-    loading,
-    error,
-    totalCount,
-    currentPage,
-    setCurrentPage,
-    totalPages,
-  } = usePolicies();
+/* ─── Policy type colours ────────────────────────────────────────────────── */
+const TYPE_STYLES: Record<string, { bg: string; color: string }> = {
+  life:     { bg: "#EFF6FF", color: "#1D4ED8" },
+  motor:    { bg: "#F0FDF4", color: "#15803D" },
+  home:     { bg: "#F5F3FF", color: "#6D28D9" },
+  health:   { bg: "#FDF2F8", color: "#9D174D" },
+  travel:   { bg: "#ECFEFF", color: "#0E7490" },
+  business: { bg: "#EEF2FF", color: "#3730A3" },
+};
+const typeStyle = (t: string) =>
+  TYPE_STYLES[t?.toLowerCase()] ?? { bg: "#F3F4F6", color: TEXT2 };
 
-  const [filters, setFilters] = useState({
-    search: "",
-    status: "",
-    policyType: "",
-    priority: "",
-  });
+/* ─── Status colours ─────────────────────────────────────────────────────── */
+const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
+  active:    { bg: NAVY_MUTED,  color: NAVY },
+  pending:   { bg: "#FEF3C7",   color: "#92400E" },
+  expired:   { bg: "#FEF2F2",   color: "#991B1B" },
+  cancelled: { bg: "#F3F4F6",   color: TEXT3 },
+  suspended: { bg: "#FFF7ED",   color: "#9A3412" },
+};
+const statusStyle = (s: string) =>
+  STATUS_STYLES[s?.toLowerCase()] ?? { bg: "#F3F4F6", color: TEXT3 };
 
-  const [showFilters, setShowFilters] = useState(false);
-  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
-  const [isFiltering, setIsFiltering] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [sortBy, setSortBy] = useState<"date" | "premium" | "name">("date");
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat("en-BW", { style: "currency", currency: "BWP", maximumFractionDigits: 0 }).format(n);
 
-  // Check if any filters are applied
-  useEffect(() => {
-    setIsFiltering(Object.values(filters).some((value) => value !== ""));
-  }, [filters]);
+const formatDate = (s: string) =>
+  new Date(s).toLocaleDateString("en-BW", { year: "numeric", month: "short", day: "numeric" });
 
-  // Mobile-first: Default to grid view on mobile
-  useEffect(() => {
-    const checkScreenSize = () => {
-      if (window.innerWidth < 1024) {
-        setViewMode("grid");
-      }
-    };
+function getExpiry(dateStr: string) {
+  const days = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000);
+  if (days < 0)  return { label: "Expired",       days: Math.abs(days), urgency: "high",   Icon: Clock };
+  if (days <= 7) return { label: "Expiring soon",  days,                urgency: "high",   Icon: Zap };
+  if (days <= 30) return { label: "Due soon",       days,                urgency: "med",    Icon: Clock };
+  if (days <= 90) return { label: "Renewal due",    days,                urgency: "low",    Icon: Calendar };
+  return              { label: "Active",           days,                urgency: "none",   Icon: CheckCircle };
+}
 
-    checkScreenSize();
-    window.addEventListener("resize", checkScreenSize);
-    return () => window.removeEventListener("resize", checkScreenSize);
-  }, []);
+const URGENCY_COLOR: Record<string, string> = {
+  high: "#DC2626",
+  med:  "#EA580C",
+  low:  "#D97706",
+  none: "#16A34A",
+};
 
-  // Fetch policies on component mount and when filters change
-  useEffect(() => {
-    const queryParams = new URLSearchParams();
+/* ─── Sub-components ─────────────────────────────────────────────────────── */
 
-    if (filters.search) queryParams.set("search", filters.search);
-    if (filters.status) queryParams.set("status", filters.status);
-    if (filters.policyType) queryParams.set("policy_type", filters.policyType);
-    if (filters.priority) queryParams.set("priority", filters.priority);
+function IconBtn({
+  icon, onClick, variant = "neutral", title,
+}: {
+  icon: React.ReactNode; onClick: () => void;
+  variant?: "neutral" | "primary" | "danger"; title?: string;
+}) {
+  const styles = {
+    neutral: { background: "#F3F4F6", color: TEXT2 },
+    primary: { background: NAVY_MUTED, color: NAVY },
+    danger:  { background: "#FEF2F2", color: "#DC2626" },
+  }[variant];
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        width: 30, height: 30, borderRadius: 8, border: "none",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", ...styles,
+      }}
+    >
+      {icon}
+    </button>
+  );
+}
 
-    fetchPolicies(currentPage, queryParams);
-  }, [currentPage, filters, fetchPolicies]);
+function FilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flexShrink: 0, padding: "6px 14px", borderRadius: 99,
+        border: active ? "none" : `1px solid ${BORDER}`,
+        background: active ? NAVY : SURFACE,
+        color: active ? "#fff" : TEXT2,
+        fontSize: 13, fontWeight: active ? 600 : 400, cursor: "pointer",
+        transition: "background 0.15s, color 0.15s",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
 
-  // Handle success message
-  useEffect(() => {
-    if (successMessage) {
-      setShowSuccessAlert(true);
-      // Auto-hide after 5 seconds
-      const timer = setTimeout(() => {
-        setShowSuccessAlert(false);
-      }, 5000);
+function TypePill({ type }: { type: string }) {
+  const s = typeStyle(type);
+  return (
+    <span style={{
+      display: "inline-block", fontSize: 10, fontWeight: 600,
+      padding: "2px 8px", borderRadius: 99,
+      background: s.bg, color: s.color,
+    }}>
+      {type}
+    </span>
+  );
+}
 
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
+function StatusPill({ status }: { status: string }) {
+  const s = statusStyle(status);
+  return (
+    <span style={{
+      display: "inline-block", fontSize: 10, fontWeight: 600,
+      padding: "2px 8px", borderRadius: 99,
+      background: s.bg, color: s.color,
+      textTransform: "capitalize",
+    }}>
+      {status}
+    </span>
+  );
+}
 
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-    setCurrentPage(1);
-  };
+/* ─── Policy icon avatar ─────────────────────────────────────────────────── */
+function PolicyIcon({ type, size = 42 }: { type: string; size?: number }) {
+  const s = typeStyle(type);
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: 12, flexShrink: 0,
+      background: s.bg, display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <Shield style={{ width: size * 0.42, height: size * 0.42, color: s.color }} />
+    </div>
+  );
+}
 
-  const clearFilters = () => {
-    setFilters({
-      search: "",
-      status: "",
-      policyType: "",
-      priority: "",
-    });
-    setCurrentPage(1);
-    setShowFilters(false);
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-BW", {
-      style: "currency",
-      currency: "BWP",
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-BW", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400";
-      case "pending":
-        return "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400";
-      case "expired":
-        return "bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400";
-      case "cancelled":
-        return "bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-400";
-      case "suspended":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-400";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getPolicyTypeColor = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "life":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400";
-      case "motor":
-        return "bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400";
-      case "home":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-400";
-      case "health":
-        return "bg-pink-100 text-pink-800 dark:bg-pink-500/20 dark:text-pink-400";
-      case "travel":
-        return "bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-400";
-      case "business":
-        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-400";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getExpirationStatus = (expirationDate: string) => {
-    const today = new Date();
-    const expiry = new Date(expirationDate);
-    const daysUntilExpiry = Math.ceil(
-      (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    if (daysUntilExpiry < 0) {
-      return {
-        status: "Expired",
-        color: "text-red-600 dark:text-red-400",
-        bgColor: "bg-red-50 dark:bg-red-500/10",
-        days: Math.abs(daysUntilExpiry),
-        icon: Clock,
-        urgency: "high",
-      };
-    } else if (daysUntilExpiry <= 7) {
-      return {
-        status: "Expiring Soon",
-        color: "text-red-600 dark:text-red-400",
-        bgColor: "bg-red-50 dark:bg-red-500/10",
-        days: daysUntilExpiry,
-        icon: Zap,
-        urgency: "high",
-      };
-    } else if (daysUntilExpiry <= 30) {
-      return {
-        status: "Due Soon",
-        color: "text-orange-600 dark:text-orange-400",
-        bgColor: "bg-orange-50 dark:bg-orange-500/10",
-        days: daysUntilExpiry,
-        icon: Clock,
-        urgency: "medium",
-      };
-    } else if (daysUntilExpiry <= 90) {
-      return {
-        status: "Renewal Due",
-        color: "text-amber-600 dark:text-amber-400",
-        bgColor: "bg-amber-50 dark:bg-amber-500/10",
-        days: daysUntilExpiry,
-        icon: Calendar,
-        urgency: "low",
-      };
-    } else {
-      return {
-        status: "Active",
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-50 dark:bg-emerald-500/10",
-        days: daysUntilExpiry,
-        icon: CheckCircle,
-        urgency: "none",
-      };
-    }
-  };
-
-  // Calculate real stats from policies data
-  const calculateStats = () => {
-    if (loading || !policies.length) return null;
-
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    return {
-      total: policies.length,
-      active: policies.filter((p) => p.status === "active").length,
-      expiring: policies.filter((p) => {
-        const daysUntilExpiry = Math.ceil(
-          (new Date(p.expiration_date).getTime() - now.getTime()) /
-            (1000 * 60 * 60 * 24)
-        );
-        return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
-      }).length,
-      totalPremium: policies.reduce(
-        (sum, policy) => sum + (policy.premium_amount || 0),
-        0
-      ),
-      newThisMonth: policies.filter((p) => {
-        const startDate = new Date(p.start_date || p.created_at);
-        return (
-          startDate.getMonth() === currentMonth &&
-          startDate.getFullYear() === currentYear
-        );
-      }).length,
-    };
-  };
-
-  const stats = calculateStats();
-
-  // Sort policies based on current sort option
-  const sortedPolicies = [...policies].sort((a, b) => {
-    switch (sortBy) {
-      case "premium":
-        return (b.premium_amount || 0) - (a.premium_amount || 0);
-      case "name":
-        return a.policy_name.localeCompare(b.policy_name);
-      case "date":
-      default:
-        return (
-          new Date(b.expiration_date).getTime() -
-          new Date(a.expiration_date).getTime()
-        );
-    }
-  });
-
-  // Policy Card Component for Mobile
-  const PolicyCard = ({ policy }: { policy: any }) => {
-    const expirationStatus = getExpirationStatus(policy.expiration_date);
-    const StatusIcon = expirationStatus.icon;
-
-    return (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98]">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-gray-900 dark:text-white truncate">
-                {policy.policy_name}
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {policy.policy_number}
-              </p>
-            </div>
-          </div>
-          <span
-            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-              policy.status
-            )}`}
-          >
-            {policy.status.charAt(0).toUpperCase() + policy.status.slice(1)}
-          </span>
-        </div>
-
-        <div className="space-y-2 mb-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Client</span>
-            <span className="font-medium text-gray-900 dark:text-white truncate ml-2">
-              {policy.client?.full_name || "Unknown Client"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Premium</span>
-            <span className="font-medium text-gray-900 dark:text-white">
-              {formatCurrency(policy.premium_amount || 0)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Expires</span>
-            <span className="font-medium text-gray-900 dark:text-white">
-              {formatDate(policy.expiration_date)}
-            </span>
-          </div>
-        </div>
-
-        <div
-          className={`flex items-center space-x-2 p-2 rounded-lg ${expirationStatus.bgColor} mb-3`}
-        >
-          <StatusIcon className={`w-4 h-4 ${expirationStatus.color}`} />
-          <span className={`text-xs font-medium ${expirationStatus.color}`}>
-            {expirationStatus.status} • {expirationStatus.days} days
-          </span>
-        </div>
-
-        <div className="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-gray-700">
-          <span
-            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPolicyTypeColor(
-              policy.policy_type
-            )}`}
-          >
-            {policy.policy_type}
-          </span>
-          <div className="flex space-x-1">
-            <button
-              onClick={() =>
-                router.push(`/dashboard/policy-management/${policy.id}`)
-              }
-              className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/30 transition-colors"
-              aria-label="View policy"
-            >
-              <Eye className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() =>
-                router.push(`/dashboard/policy-management/${policy.id}/edit`)
-              }
-              className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-              aria-label="Edit policy"
-            >
-              <Edit className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Stats Card Component
-  const StatsCard = ({
-    title,
-    value,
-    icon: Icon,
-    trend,
-    subtitle,
-    color,
-  }: any) => {
-    const colorClasses = {
-      blue: "bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400",
-      green:
-        "bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400",
-      purple:
-        "bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400",
-      orange:
-        "bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400",
-    };
-
-    return (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">
-              {title}
-            </p>
-            <p className="text-lg font-bold text-gray-900 dark:text-white mt-1 truncate">
-              {loading ? "..." : value}
-            </p>
-            {trend && !loading && (
-              <div className="flex items-center space-x-1 mt-1">
-                <TrendingUp className="w-3 h-3 text-green-500" />
-                <span className="text-xs text-green-600 dark:text-green-400">
-                  {trend}
-                </span>
-              </div>
-            )}
-            {subtitle && !loading && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-                {subtitle}
-              </p>
-            )}
-          </div>
-          <div
-            className={`w-8 h-8 rounded-lg flex items-center justify-center ml-3 flex-shrink-0 ${colorClasses[color]}`}
-          >
-            <Icon className="w-4 h-4" />
-          </div>
-        </div>
-      </div>
-    );
-  };
+/* ─── Card ───────────────────────────────────────────────────────────────── */
+function PolicyCard({ policy, onView, onEdit }: any) {
+  const expiry = getExpiry(policy.expiration_date);
+  const urgColor = URGENCY_COLOR[expiry.urgency];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 pb-28">
-      <div className="p-4 lg:p-6 max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
-                Policy Portfolio
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-sm lg:text-base">
-                {loading ? "..." : totalCount} policies managed
-              </p>
-            </div>
-            <button
-              onClick={() => router.push("/dashboard/policy-management/create")}
-              className="lg:hidden w-12 h-12 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl flex items-center justify-center shadow-lg hover:from-blue-700 hover:to-blue-800 active:scale-95 transition-all"
-              aria-label="Create new policy"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-            <div className="hidden lg:flex items-center space-x-3">
-              <button className="flex items-center space-x-2 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm">
-                <FileText className="w-4 h-4" />
-                <span>Reports</span>
-              </button>
-              <button
-                onClick={() =>
-                  router.push("/dashboard/policy-management/create")
-                }
-                className="flex items-center space-x-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all font-medium"
-              >
-                <Plus className="w-4 h-4" />
-                <span>New Policy</span>
-              </button>
-            </div>
+    <div
+      onClick={() => onView(policy.id)}
+      style={{
+        background: SURFACE, borderRadius: 14, border: `1px solid ${BORDER}`,
+        padding: "14px", cursor: "pointer",
+        transition: "box-shadow 0.15s, transform 0.15s",
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 14px rgba(27,43,75,0.10)";
+        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-1px)";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
+        (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
+      }}
+    >
+      {/* Top row */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 11, marginBottom: 10 }}>
+        <PolicyIcon type={policy.policy_type} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: TEXT1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {policy.policy_name}
           </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6">
-            <StatsCard
-              title="Total Policies"
-              value={stats?.total || 0}
-              icon={Shield}
-              trend={
-                stats?.newThisMonth
-                  ? `+${stats.newThisMonth} this month`
-                  : undefined
-              }
-              color="blue"
-              loading={loading}
-            />
-            <StatsCard
-              title="Active Policies"
-              value={stats?.active || 0}
-              icon={CheckCircle}
-              subtitle={
-                stats?.total
-                  ? `${Math.round((stats.active / stats.total) * 100)}% active`
-                  : undefined
-              }
-              color="green"
-              loading={loading}
-            />
-            <StatsCard
-              title="Expiring Soon"
-              value={stats?.expiring || 0}
-              icon={Clock}
-              subtitle="Next 30 days"
-              color="orange"
-              loading={loading}
-            />
-            <StatsCard
-              title="Portfolio Value"
-              value={formatCurrency(stats?.totalPremium || 0).split(".")[0]}
-              icon={DollarSign}
-              subtitle={`Avg: ${
-                formatCurrency(
-                  stats?.totalPremium && stats?.total
-                    ? stats.totalPremium / stats.total
-                    : 0
-                ).split(".")[0]
-              }`}
-              color="purple"
-              loading={loading}
-            />
+          <div style={{ fontSize: 11, color: TEXT3, marginTop: 1 }}>{policy.policy_number}</div>
+          <div style={{ marginTop: 4, display: "flex", gap: 5, flexWrap: "wrap" }}>
+            <StatusPill status={policy.status} />
+            <TypePill type={policy.policy_type} />
           </div>
         </div>
+        <div style={{ display: "flex", gap: 5, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          <IconBtn icon={<Eye style={{ width: 13, height: 13 }} />} onClick={() => onView(policy.id)} variant="primary" title="View" />
+          <IconBtn icon={<Edit style={{ width: 13, height: 13 }} />} onClick={() => onEdit(policy.id)} title="Edit" />
+        </div>
+      </div>
 
-        {/* Success Alert */}
-        {showSuccessAlert && successMessage && (
-          <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-500/10 dark:to-emerald-500/10 border border-green-200 dark:border-green-500/20">
-            <div className="flex items-center space-x-2">
-              <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-3 h-3 text-white" />
-              </div>
-              <span className="text-sm font-medium text-green-800 dark:text-green-400 flex-1">
-                {successMessage}
-              </span>
-              <button
-                onClick={() => setShowSuccessAlert(false)}
-                className="text-green-600 hover:text-green-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      {/* Details grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", marginBottom: 10 }}>
+        {[
+          { label: "Client",  value: policy.client?.full_name || "—" },
+          { label: "Premium", value: formatCurrency(policy.premium_amount || 0) },
+          { label: "Started", value: formatDate(policy.start_date || policy.created_at) },
+          { label: "Expires", value: formatDate(policy.expiration_date) },
+        ].map(({ label, value }) => (
+          <div key={label}>
+            <div style={{ fontSize: 10, color: TEXT3, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+            <div style={{ fontSize: 12, color: TEXT1, fontWeight: 500, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Expiry strip */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 6,
+        padding: "6px 10px", borderRadius: 8,
+        background: expiry.urgency === "none" ? "#F0FDF4" : expiry.urgency === "high" ? "#FEF2F2" : expiry.urgency === "med" ? "#FFF7ED" : "#FFFBEB",
+      }}>
+        <expiry.Icon style={{ width: 12, height: 12, color: urgColor, flexShrink: 0 }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: urgColor }}>
+          {expiry.label}
+        </span>
+        <span style={{ fontSize: 11, color: TEXT3, marginLeft: "auto" }}>
+          {expiry.days}d
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Table row ──────────────────────────────────────────────────────────── */
+function PolicyTableRow({ policy, onView, onEdit }: any) {
+  const expiry = getExpiry(policy.expiration_date);
+  return (
+    <tr
+      onClick={() => onView(policy.id)}
+      style={{ borderBottom: `1px solid ${BORDER}`, cursor: "pointer", transition: "background 0.1s" }}
+      onMouseEnter={e => ((e.currentTarget as HTMLTableRowElement).style.background = BG)}
+      onMouseLeave={e => ((e.currentTarget as HTMLTableRowElement).style.background = "transparent")}
+    >
+      <td style={{ padding: "13px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <PolicyIcon type={policy.policy_type} size={34} />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: TEXT1 }}>{policy.policy_name}</div>
+            <div style={{ fontSize: 11, color: TEXT3 }}>{policy.policy_number}</div>
+          </div>
+        </div>
+      </td>
+      <td style={{ padding: "13px 16px", fontSize: 13, color: TEXT2 }}>
+        {policy.client?.full_name || "—"}
+      </td>
+      <td style={{ padding: "13px 16px", fontSize: 13, fontWeight: 600, color: TEXT1 }}>
+        {formatCurrency(policy.premium_amount || 0)}
+      </td>
+      <td style={{ padding: "13px 16px" }}>
+        <StatusPill status={policy.status} />
+      </td>
+      <td style={{ padding: "13px 16px" }}>
+        <TypePill type={policy.policy_type} />
+      </td>
+      <td style={{ padding: "13px 16px" }}>
+        <div style={{ fontSize: 12, color: TEXT1 }}>{formatDate(policy.expiration_date)}</div>
+        <div style={{ fontSize: 11, color: URGENCY_COLOR[expiry.urgency], marginTop: 1 }}>{expiry.label}</div>
+      </td>
+      <td style={{ padding: "13px 16px" }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", gap: 5 }}>
+          <IconBtn icon={<Eye style={{ width: 13, height: 13 }} />} onClick={() => onView(policy.id)} variant="primary" title="View" />
+          <IconBtn icon={<Edit style={{ width: 13, height: 13 }} />} onClick={() => onEdit(policy.id)} title="Edit" />
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+/* ─── Loading skeleton ───────────────────────────────────────────────────── */
+function PolicyManagementLoading() {
+  return (
+    <div style={{ padding: 16, background: BG, minHeight: "100vh" }}>
+      <div style={{ height: 28, background: BORDER, borderRadius: 8, width: 160, marginBottom: 6 }} className="animate-pulse" />
+      <div style={{ height: 14, background: BORDER, borderRadius: 8, width: 120, marginBottom: 20 }} className="animate-pulse" />
+      {[...Array(4)].map((_, i) => (
+        <div key={i} style={{ height: 148, background: BORDER, borderRadius: 14, marginBottom: 8 }} className="animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+/* ─── Filter types ───────────────────────────────────────────────────────── */
+type StatusFilter = "all" | "active" | "pending" | "expired" | "cancelled" | "suspended";
+type TypeFilter   = "all" | "life" | "motor" | "home" | "health" | "travel" | "business";
+
+const STATUS_PILLS: { value: StatusFilter; label: string }[] = [
+  { value: "all",       label: "All"       },
+  { value: "active",    label: "Active"    },
+  { value: "pending",   label: "Pending"   },
+  { value: "expired",   label: "Expired"   },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const TYPE_PILLS: { value: TypeFilter; label: string }[] = [
+  { value: "all",      label: "All types" },
+  { value: "life",     label: "Life"      },
+  { value: "motor",    label: "Motor"     },
+  { value: "home",     label: "Home"      },
+  { value: "health",   label: "Health"    },
+  { value: "travel",   label: "Travel"    },
+  { value: "business", label: "Business"  },
+];
+
+/* ─── Main content ───────────────────────────────────────────────────────── */
+function PolicyManagementContent() {
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+
+  const [viewMode,      setViewMode]      = useState<"grid" | "list">("grid");
+  const [sortBy,        setSortBy]        = useState<"date" | "premium" | "name">("date");
+  const [search,        setSearch]        = useState(searchParams.get("search") || "");
+  const [statusFilter,  setStatusFilter]  = useState<StatusFilter>("all");
+  const [typeFilter,    setTypeFilter]    = useState<TypeFilter>("all");
+
+  const {
+    policies, loading, error,
+    totalCount, currentPage, setCurrentPage, totalPages,
+    fetchPolicies,
+  } = usePolicies();
+
+  const successMessage = searchParams.get("success");
+
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (search)                    p.set("search",      search);
+    if (statusFilter !== "all")    p.set("status",      statusFilter);
+    if (typeFilter   !== "all")    p.set("policy_type", typeFilter);
+    fetchPolicies(currentPage, p);
+  }, [currentPage, search, statusFilter, typeFilter, fetchPolicies]);
+
+  /* derived stats */
+  const stats = (() => {
+    if (!policies.length) return null;
+    const now = new Date();
+    const cm = now.getMonth(), cy = now.getFullYear();
+    const active   = policies.filter(p => p.status === "active").length;
+    const expiring = policies.filter(p => {
+      const d = Math.ceil((new Date(p.expiration_date).getTime() - now.getTime()) / 86_400_000);
+      return d > 0 && d <= 30;
+    }).length;
+    const newMonth = policies.filter(p => {
+      const d = new Date(p.start_date || p.created_at);
+      return d.getMonth() === cm && d.getFullYear() === cy;
+    }).length;
+    return { active, expiring, newMonth };
+  })();
+
+  const sorted = [...policies].sort((a, b) =>
+    sortBy === "premium" ? (b.premium_amount || 0) - (a.premium_amount || 0)
+    : sortBy === "name"  ? a.policy_name.localeCompare(b.policy_name)
+    : new Date(b.expiration_date).getTime() - new Date(a.expiration_date).getTime()
+  );
+
+  const goTo = (path: string) => router.push(path);
+
+  /* ── Error full-screen ─────────────────────────────────────────────── */
+  if (error && !policies.length) {
+    return (
+      <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#FEF2F2", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+            <AlertCircle style={{ width: 24, height: 24, color: "#DC2626" }} />
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: TEXT1, marginBottom: 6 }}>Unable to load policies</div>
+          <div style={{ fontSize: 13, color: TEXT2, marginBottom: 20 }}>{error}</div>
+          <button onClick={() => fetchPolicies(currentPage)}
+            style={{ padding: "10px 24px", background: NAVY, color: "#fff", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 600 }}>
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Page ──────────────────────────────────────────────────────────── */
+  return (
+    <div style={{ minHeight: "100vh", background: BG, fontFamily: "system-ui,-apple-system,sans-serif", paddingBottom: 100 }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "18px 16px" }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: NAVY, letterSpacing: "-0.3px", margin: 0 }}>
+              Policies
+            </h1>
+            {!loading && stats && (
+              <p style={{ fontSize: 12, color: TEXT3, margin: "3px 0 0" }}>
+                <span style={{ color: ACCENT, fontWeight: 600 }}>{stats.active} active</span>
+                <span style={{ margin: "0 4px" }}>·</span>
+                {totalCount} total
+                {stats.expiring > 0 && (
+                  <>
+                    <span style={{ margin: "0 4px" }}>·</span>
+                    <span style={{ color: "#EA580C", fontWeight: 600 }}>{stats.expiring} expiring soon</span>
+                  </>
+                )}
+                {stats.newMonth > 0 && (
+                  <>
+                    <span style={{ margin: "0 4px" }}>·</span>
+                    <span style={{ color: "#22C55E", fontWeight: 600 }}>+{stats.newMonth} this month</span>
+                  </>
+                )}
+              </p>
+            )}
+          </div>
+
+          <button
+            onClick={() => goTo("/dashboard/policy-management/create")}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "9px 18px", borderRadius: 99,
+              background: NAVY, color: "#fff", border: "none",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              boxShadow: "0 2px 10px rgba(27,43,75,0.25)",
+              transition: "transform 0.12s, box-shadow 0.12s",
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.03)";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 16px rgba(27,43,75,0.32)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 2px 10px rgba(27,43,75,0.25)";
+            }}
+          >
+            <Plus style={{ width: 15, height: 15 }} />
+            Add policy
+          </button>
+        </div>
+
+        {/* Success banner */}
+        {successMessage && (
+          <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 10, background: "#F0FDF4", border: "1px solid #BBF7D0", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#22C55E", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="10" height="10" viewBox="0 0 20 20" fill="white">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
             </div>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "#166534" }}>{successMessage}</span>
           </div>
         )}
 
-        {/* Controls Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 lg:p-6 mb-4">
-          <div className="space-y-4 lg:space-y-0 lg:flex lg:items-center lg:justify-between">
-            {/* Search Bar */}
-            <div className="lg:flex-1 lg:max-w-md">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search policies by name, number, or client..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange("search", e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-                />
-              </div>
-            </div>
-
-            {/* Filters and Toggle */}
-            <div className="flex items-center space-x-2 lg:space-x-4">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="flex-1 lg:flex-none px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              >
-                <option value="date">Newest First</option>
-                <option value="premium">Highest Premium</option>
-                <option value="name">Name A-Z</option>
-              </select>
-
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center space-x-2 px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm"
-              >
-                <Filter className="w-4 h-4" />
-                <span>Filters</span>
-                {isFiltering && (
-                  <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                )}
-              </button>
-
-              {/* View Toggle - Desktop only */}
-              <div className="hidden lg:flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded-md transition-all ${
-                    viewMode === "grid"
-                      ? "bg-white dark:bg-gray-600 shadow-sm text-blue-600"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                  }`}
-                  aria-label="Grid view"
-                >
-                  <Grid className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-2 rounded-md transition-all ${
-                    viewMode === "list"
-                      ? "bg-white dark:bg-gray-600 shadow-sm text-blue-600"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                  }`}
-                  aria-label="List view"
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Filter Options */}
-          {showFilters && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                  Status
-                </label>
-                <select
-                  value={filters.status}
-                  onChange={(e) => handleFilterChange("status", e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="active">Active</option>
-                  <option value="pending">Pending</option>
-                  <option value="expired">Expired</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="suspended">Suspended</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                  Policy Type
-                </label>
-                <select
-                  value={filters.policyType}
-                  onChange={(e) =>
-                    handleFilterChange("policyType", e.target.value)
-                  }
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                >
-                  <option value="">All Types</option>
-                  <option value="life">Life Insurance</option>
-                  <option value="motor">Motor Insurance</option>
-                  <option value="home">Home Insurance</option>
-                  <option value="health">Health Insurance</option>
-                  <option value="travel">Travel Insurance</option>
-                  <option value="business">Business Insurance</option>
-                </select>
-              </div>
-              <div className="flex items-end space-x-2">
-                <button
-                  onClick={clearFilters}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm"
-                >
-                  Clear Filters
-                </button>
-              </div>
-            </div>
+        {/* Search */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          background: SURFACE, border: `1px solid ${BORDER}`,
+          borderRadius: 12, padding: "10px 14px", marginBottom: 10,
+          boxShadow: "0 1px 4px rgba(27,43,75,0.04)",
+        }}>
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke={TEXT3} strokeWidth="2">
+            <circle cx="8" cy="8" r="5" /><path d="M15 15l-3.5-3.5" strokeLinecap="round" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+            placeholder="Search by policy name, number, or client…"
+            style={{ flex: 1, border: "none", background: "transparent", fontSize: 14, color: TEXT1, outline: "none" }}
+          />
+          {search && (
+            <button onClick={() => setSearch("")}
+              style={{ border: "none", background: "none", cursor: "pointer", color: TEXT3, padding: 0, display: "flex" }}>
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
           )}
         </div>
 
-        {/* Policies Content */}
-        {loading && !policies.length ? (
-          <div className="text-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-3" />
-            <p className="text-gray-600 dark:text-gray-400">
-              Loading policies...
-            </p>
-          </div>
-        ) : error ? (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-              Error Loading Policies
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
-            <button
-              onClick={() => fetchPolicies(currentPage)}
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all font-medium"
-            >
-              Try Again
-            </button>
-          </div>
-        ) : sortedPolicies.length === 0 ? (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-              No Policies Found
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {isFiltering
-                ? "Try adjusting your filters to see more results."
-                : "Get started by creating your first insurance policy."}
-            </p>
-            {isFiltering ? (
-              <button
-                onClick={clearFilters}
-                className="px-6 py-2.5 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-all font-medium mr-3"
-              >
-                Clear Filters
+        {/* Status pill row */}
+        <div style={{ display: "flex", gap: 7, marginBottom: 8, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          {STATUS_PILLS.map(({ value, label }) => (
+            <FilterPill key={value} label={label} active={statusFilter === value}
+              onClick={() => { setStatusFilter(value); setCurrentPage(1); }} />
+          ))}
+
+          <div style={{ flex: 1 }} />
+
+          {/* Sort */}
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as any)}
+            style={{
+              flexShrink: 0, padding: "6px 10px", borderRadius: 99,
+              border: `1px solid ${BORDER}`, background: SURFACE,
+              fontSize: 12, color: TEXT2, outline: "none", cursor: "pointer",
+              appearance: "none", paddingRight: 24,
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239CA3AF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+              backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center",
+            }}
+          >
+            <option value="date">Newest first</option>
+            <option value="premium">Highest premium</option>
+            <option value="name">Name A–Z</option>
+          </select>
+
+          {/* View toggle — desktop only */}
+          <div className="hidden lg:flex" style={{ background: BG, borderRadius: 10, padding: 3, gap: 2, display: "flex" }}>
+            {(["grid", "list"] as const).map(mode => (
+              <button key={mode} onClick={() => setViewMode(mode)}
+                style={{
+                  width: 30, height: 30, borderRadius: 7, border: "none", cursor: "pointer",
+                  background: viewMode === mode ? SURFACE : "transparent",
+                  color: viewMode === mode ? NAVY : TEXT3,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: viewMode === mode ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  transition: "background 0.12s",
+                }}>
+                {mode === "grid"
+                  ? <Grid style={{ width: 13, height: 13 }} />
+                  : <List style={{ width: 13, height: 13 }} />}
               </button>
-            ) : null}
-            <button
-              onClick={() => router.push("/dashboard/policy-management/create")}
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all font-medium"
-            >
-              Create Policy
-            </button>
+            ))}
           </div>
+        </div>
+
+        {/* Type pill row */}
+        <div style={{ display: "flex", gap: 7, marginBottom: 14, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          {TYPE_PILLS.map(({ value, label }) => (
+            <FilterPill key={value} label={label} active={typeFilter === value}
+              onClick={() => { setTypeFilter(value); setCurrentPage(1); }} />
+          ))}
+        </div>
+
+        {/* Content */}
+        {loading && !policies.length ? (
+          <div style={{ textAlign: "center", padding: "52px 0" }}>
+            <div style={{
+              width: 26, height: 26, borderRadius: "50%",
+              border: `2px solid ${NAVY}`, borderTopColor: "transparent",
+              animation: "spin 0.8s linear infinite", margin: "0 auto 12px",
+            }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            <div style={{ fontSize: 13, color: TEXT3 }}>Loading policies…</div>
+          </div>
+
+        ) : sorted.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "52px 20px", background: SURFACE, borderRadius: 16, border: `1px solid ${BORDER}` }}>
+            <div style={{ width: 50, height: 50, borderRadius: "50%", background: NAVY_LIGHT, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+              <FileText style={{ width: 20, height: 20, color: NAVY }} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: TEXT1, marginBottom: 5 }}>No policies found</div>
+            <div style={{ fontSize: 13, color: TEXT3 }}>
+              {search || statusFilter !== "all" || typeFilter !== "all"
+                ? "Try adjusting your search or filters."
+                : "Create your first policy to get started."}
+            </div>
+          </div>
+
         ) : (
           <>
-            {/* Mobile Grid View */}
-            <div className="lg:hidden space-y-3">
-              {sortedPolicies.map((policy) => (
-                <PolicyCard key={policy.id} policy={policy} />
+            {/* Mobile — card stack */}
+            <div className="lg:hidden" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {sorted.map(p => (
+                <PolicyCard key={p.id} policy={p}
+                  onView={(id: string) => goTo(`/dashboard/policy-management/${id}`)}
+                  onEdit={(id: string) => goTo(`/dashboard/policy-management/${id}/edit`)}
+                />
               ))}
             </div>
 
-            {/* Desktop View */}
+            {/* Desktop — grid or list */}
             <div className="hidden lg:block">
               {viewMode === "grid" ? (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  {sortedPolicies.map((policy) => (
-                    <PolicyCard key={policy.id} policy={policy} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {sorted.map(p => (
+                    <PolicyCard key={p.id} policy={p}
+                      onView={(id: string) => goTo(`/dashboard/policy-management/${id}`)}
+                      onEdit={(id: string) => goTo(`/dashboard/policy-management/${id}/edit`)}
+                    />
                   ))}
                 </div>
               ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                          <th className="text-left py-4 px-6 font-semibold text-gray-600 dark:text-gray-400">
-                            Policy
+                <div style={{ background: SURFACE, borderRadius: 16, border: `1px solid ${BORDER}`, overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${BORDER}`, background: BG }}>
+                        {["Policy", "Client", "Premium", "Status", "Type", "Expiry", ""].map((h, i) => (
+                          <th key={i} style={{ textAlign: "left", padding: "10px 16px", fontSize: 10, fontWeight: 700, color: TEXT3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                            {h}
                           </th>
-                          <th className="text-left py-4 px-6 font-semibold text-gray-600 dark:text-gray-400">
-                            Client
-                          </th>
-                          <th className="text-left py-4 px-6 font-semibold text-gray-600 dark:text-gray-400">
-                            Premium
-                          </th>
-                          <th className="text-left py-4 px-6 font-semibold text-gray-600 dark:text-gray-400">
-                            Status
-                          </th>
-                          <th className="text-left py-4 px-6 font-semibold text-gray-600 dark:text-gray-400">
-                            Expiration
-                          </th>
-                          <th className="text-left py-4 px-6 font-semibold text-gray-600 dark:text-gray-400">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sortedPolicies.map((policy) => {
-                          const expirationStatus = getExpirationStatus(
-                            policy.expiration_date
-                          );
-                          return (
-                            <tr
-                              key={policy.id}
-                              className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-200 dark:border-gray-700 last:border-b-0"
-                            >
-                              <td className="py-4 px-6">
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                                    <Shield className="w-5 h-5 text-white" />
-                                  </div>
-                                  <div>
-                                    <div className="font-medium text-gray-900 dark:text-white">
-                                      {policy.policy_name}
-                                    </div>
-                                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                                      {policy.policy_number}
-                                    </div>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-4 px-6">
-                                <div className="text-sm text-gray-900 dark:text-white">
-                                  {policy.client?.full_name || "Unknown"}
-                                </div>
-                              </td>
-                              <td className="py-4 px-6">
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {formatCurrency(policy.premium_amount || 0)}
-                                </div>
-                              </td>
-                              <td className="py-4 px-6">
-                                <span
-                                  className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                                    policy.status
-                                  )}`}
-                                >
-                                  {policy.status}
-                                </span>
-                              </td>
-                              <td className="py-4 px-6">
-                                <div className="text-sm text-gray-900 dark:text-white">
-                                  {formatDate(policy.expiration_date)}
-                                </div>
-                                <div
-                                  className={`text-xs ${expirationStatus.color}`}
-                                >
-                                  {expirationStatus.status}
-                                </div>
-                              </td>
-                              <td className="py-4 px-6">
-                                <div className="flex items-center space-x-2">
-                                  <button
-                                    onClick={() =>
-                                      router.push(
-                                        `/dashboard/policy-management/${policy.id}`
-                                      )
-                                    }
-                                    className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/30 transition-colors"
-                                    title="View policy"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      router.push(
-                                        `/dashboard/policy-management/${policy.id}/edit`
-                                      )
-                                    }
-                                    className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                                    title="Edit policy"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map(p => (
+                        <PolicyTableRow key={p.id} policy={p}
+                          onView={(id: string) => goTo(`/dashboard/policy-management/${id}`)}
+                          onEdit={(id: string) => goTo(`/dashboard/policy-management/${id}/edit`)}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
@@ -836,118 +618,49 @@ function PolicyManagementContent() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Showing {(currentPage - 1) * 10 + 1} to{" "}
-              {Math.min(currentPage * 10, totalCount)} of {totalCount} policies
+          <div style={{ marginTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 12, color: TEXT3 }}>
+              {(currentPage - 1) * 10 + 1}–{Math.min(currentPage * 10, totalCount)} of {totalCount}
             </div>
-            <div className="flex items-center space-x-2">
+            <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="w-4 h-4" />
+                style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${BORDER}`, background: SURFACE, cursor: currentPage === 1 ? "not-allowed" : "pointer", opacity: currentPage === 1 ? 0.4 : 1, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT2 }}>
+                <ChevronLeft style={{ width: 15, height: 15 }} />
               </button>
 
-              <div className="flex items-center space-x-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  if (pageNum > totalPages || pageNum < 1) return null;
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`w-8 h-8 text-sm rounded-lg transition-all ${
-                        pageNum === currentPage
-                          ? "bg-blue-600 text-white shadow-md"
-                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const p =
+                  totalPages <= 5            ? i + 1
+                  : currentPage <= 3         ? i + 1
+                  : currentPage >= totalPages - 2 ? totalPages - 4 + i
+                  : currentPage - 2 + i;
+                if (p < 1 || p > totalPages) return null;
+                const active = p === currentPage;
+                return (
+                  <button key={p} onClick={() => setCurrentPage(p)}
+                    style={{ width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: active ? NAVY : SURFACE, color: active ? "#fff" : TEXT2, outline: active ? "none" : `1px solid ${BORDER}` }}>
+                    {p}
+                  </button>
+                );
+              })}
 
               <button
-                onClick={() =>
-                  setCurrentPage(Math.min(totalPages, currentPage + 1))
-                }
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
-                aria-label="Next page"
-              >
-                <ChevronRight className="w-4 h-4" />
+                style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${BORDER}`, background: SURFACE, cursor: currentPage === totalPages ? "not-allowed" : "pointer", opacity: currentPage === totalPages ? 0.4 : 1, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT2 }}>
+                <ChevronRight style={{ width: 15, height: 15 }} />
               </button>
             </div>
           </div>
         )}
       </div>
-
-      {/* Floating Action Button - always visible */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <button
-          onClick={() => router.push("/dashboard/policy-management/create")}
-          className="flex items-center gap-2 px-5 py-3 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-2xl hover:from-blue-700 hover:to-blue-800 active:scale-95 transition-all"
-          aria-label="Create new policy"
-        >
-          <Plus className="w-5 h-5" />
-          <span className="text-sm font-semibold">Add Policy</span>
-        </button>
-      </div>
     </div>
   );
 }
 
-// Loading component for Suspense fallback
-function PolicyManagementLoading() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <div className="animate-pulse">
-        {/* Header Skeleton */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <div className="h-7 bg-gray-300 rounded w-48 mb-2"></div>
-            <div className="h-4 bg-gray-300 rounded w-64"></div>
-          </div>
-          <div className="h-10 bg-gray-300 rounded-xl w-20"></div>
-        </div>
-
-        {/* Stats Grid Skeleton */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-20 lg:h-24 bg-gray-300 rounded-xl"></div>
-          ))}
-        </div>
-
-        {/* Search Bar Skeleton */}
-        <div className="h-14 bg-gray-300 rounded-xl mb-4"></div>
-
-        {/* Cards Skeleton */}
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-32 bg-gray-300 rounded-xl"></div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Main component with Suspense boundary
+/* ─── Export ─────────────────────────────────────────────────────────────── */
 export default function PolicyManagementPage() {
   return (
     <Suspense fallback={<PolicyManagementLoading />}>

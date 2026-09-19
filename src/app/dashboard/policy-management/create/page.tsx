@@ -791,7 +791,10 @@ function CreatePolicyForm() {
       )}
 
       {/* Form Content */}
-      <main className="px-4 pb-32">
+      {/* pb-48 (was pb-32) — gives the scroll content enough bottom clearance
+          to clear the taller fixed nav below (button row + progress dots +
+          safe-area padding) so the last field on any step never sits behind it. */}
+      <main className="px-4 pb-48">
         <form onSubmit={handleSubmit} id="policy-form">
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
             {/* Step 1: Basic Info */}
@@ -1502,7 +1505,17 @@ function CreatePolicyForm() {
       </main>
 
       {/* Fixed Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 p-4 shadow-2xl">
+      {/* z-30 (was unset, defaulting under the sticky header's z-20 in some
+          stacking contexts) so this nav always renders above the app's
+          bottom tab bar — set it to whatever your tab bar's z-index + 1 is
+          if the tab bar uses something higher than 20-29.
+          paddingBottom clears the tab bar's height (~64-70px) plus the
+          iOS safe-area home-indicator inset, so the Next/Save button never
+          sits underneath the tabs — same pattern used on the New Client page. */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 p-4 shadow-2xl"
+        style={{ paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}
+      >
         <div className="flex items-center justify-between space-x-4">
           <button
             type="button"
